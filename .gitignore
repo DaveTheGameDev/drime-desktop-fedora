@@ -1,0 +1,8 @@
+# Never commit credentials
+rclone.conf
+*.token
+*.secret
+
+# Editor/OS junk
+*~
+.DS_Store

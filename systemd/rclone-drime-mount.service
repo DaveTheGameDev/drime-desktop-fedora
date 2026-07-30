@@ -1,0 +1,19 @@
+[Unit]
+Description=Drime cloud virtual drive (rclone mount)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStartPre=/usr/bin/mkdir -p %h/Drime
+ExecStart=/usr/bin/rclone mount drime: %h/Drime \
+    --vfs-cache-mode full \
+    --vfs-cache-max-size 10G \
+    --dir-cache-time 1m \
+    --umask 022
+ExecStop=/usr/bin/fusermount3 -u %h/Drime
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

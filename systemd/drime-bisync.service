@@ -1,0 +1,13 @@
+[Unit]
+Description=Drime two-way sync (~/DrimeSync <-> drime:Sync)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rclone bisync %h/DrimeSync drime:Sync \
+    --size-only \
+    --create-empty-src-dirs \
+    --check-access \
+    --resilient \
+    --recover
