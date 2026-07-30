@@ -22,6 +22,9 @@ done
 
 info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 
+# Remove the custom folder icon while the drive is still mounted
+gio set -t unset "$MOUNT_POINT" metadata::custom-icon 2>/dev/null
+
 # Stop and remove units
 systemctl --user disable --now drime-bisync.timer 2>/dev/null
 systemctl --user stop drime-bisync.service 2>/dev/null

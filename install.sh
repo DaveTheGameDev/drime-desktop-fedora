@@ -62,6 +62,20 @@ bookmarks="$HOME/.config/gtk-3.0/bookmarks"
 mkdir -p "$(dirname "$bookmarks")" && touch "$bookmarks"
 grep -q "file://$MOUNT_POINT " "$bookmarks" || printf 'file://%s Drime\n' "$MOUNT_POINT" >> "$bookmarks"
 
+# --- Drime folder icon -------------------------------------------------------
+icon_path="$HOME/.local/share/icons/drime.png"
+mkdir -p "$(dirname "$icon_path")"
+if [ ! -f "$icon_path" ]; then
+    for size in 512x512 192x192 144x144; do
+        curl -sf --max-time 20 "https://app.drime.cloud/favicon/icon-$size.png" -o "$icon_path" && break || true
+    done
+fi
+if [ -f "$icon_path" ]; then
+    gio set "$MOUNT_POINT" metadata::custom-icon "file://$icon_path" 2>/dev/null \
+        && info "Drime icon applied to the $MOUNT_POINT folder" \
+        || warn "Could not set a custom folder icon (gio metadata not supported here)."
+fi
+
 # --- Web app launcher --------------------------------------------------------
 APP_CMD=""
 if command -v flatpak >/dev/null && flatpak info org.chromium.Chromium >/dev/null 2>&1; then
@@ -77,13 +91,7 @@ elif command -v google-chrome >/dev/null; then
 fi
 
 if [ -n "$APP_CMD" ]; then
-    icon_path="$HOME/.local/share/icons/drime.png"
-    mkdir -p "$(dirname "$icon_path")" "$HOME/.local/share/applications"
-    if [ ! -f "$icon_path" ]; then
-        for size in 512x512 192x192 144x144; do
-            curl -sf --max-time 20 "https://app.drime.cloud/favicon/icon-$size.png" -o "$icon_path" && break || true
-        done
-    fi
+    mkdir -p "$HOME/.local/share/applications"
     [ -f "$icon_path" ] || warn "Could not download the Drime icon; launcher will have a generic icon."
     sed -e "s|@APP_CMD@|$APP_CMD|" -e "s|@ICON_PATH@|$icon_path|" \
         "$REPO_DIR/desktop/drime.desktop" > "$HOME/.local/share/applications/drime.desktop"
