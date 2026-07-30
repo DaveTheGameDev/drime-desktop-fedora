@@ -29,16 +29,19 @@ cd drime-desktop-fedora
 
 The script asks for your API token on first run (input is hidden and goes straight into `~/.config/rclone/rclone.conf` — it never touches shell history or this repo). It is idempotent: re-running skips whatever is already set up.
 
+It also downloads the Drime logo and sets it as the custom icon of the `~/Drime` folder (GNOME Files shows it in the file view) and of the app launcher.
+
 <details>
 <summary>Manual install (what the script does)</summary>
 
 1. `rclone config create drime drime access_token=<TOKEN>`
 2. Copy `systemd/*.service` and `systemd/*.timer` to `~/.config/systemd/user/`
 3. `systemctl --user daemon-reload && systemctl --user enable --now rclone-drime-mount.service`
-4. `mkdir ~/DrimeSync && touch ~/DrimeSync/RCLONE_TEST && rclone copy ~/DrimeSync/RCLONE_TEST drime:Sync/`
-5. `rclone bisync ~/DrimeSync drime:Sync --size-only --create-empty-src-dirs --check-access --resync`
-6. `systemctl --user enable --now drime-bisync.timer`
-7. Fill in `desktop/drime.desktop` (`@APP_CMD@`, `@ICON_PATH@`) and copy it to `~/.local/share/applications/`; the icon is at `https://app.drime.cloud/favicon/icon-512x512.png`
+4. Optional: `gio set ~/Drime metadata::custom-icon file://$HOME/.local/share/icons/drime.png` for the folder icon
+5. `mkdir ~/DrimeSync && touch ~/DrimeSync/RCLONE_TEST && rclone copy ~/DrimeSync/RCLONE_TEST drime:Sync/`
+6. `rclone bisync ~/DrimeSync drime:Sync --size-only --create-empty-src-dirs --check-access --resync`
+7. `systemctl --user enable --now drime-bisync.timer`
+8. Fill in `desktop/drime.desktop` (`@APP_CMD@`, `@ICON_PATH@`) and copy it to `~/.local/share/applications/`; the icon is at `https://app.drime.cloud/favicon/icon-512x512.png`
 </details>
 
 ## Everyday use
@@ -61,6 +64,7 @@ systemctl --user list-timers drime-bisync.timer
 - **Drime's API stores no modification times or hashes**, so the sync folder detects changes by file size only. An edit that keeps a file's exact byte size won't be picked up by `~/DrimeSync`. This is rare, but for important work prefer `~/Drime` — the mount always uploads what you save.
 - Tune cache size/behavior in `systemd/rclone-drime-mount.service` (`--vfs-cache-max-size`, `--dir-cache-time`); changes made in the cloud can take up to a minute to appear in `~/Drime`.
 - Drime's own desktop apps are beta; the rclone backend is young too. Keep backups of anything irreplaceable.
+- The GNOME Files **sidebar** bookmark keeps the generic folder glyph: Nautilus hardcodes bookmark icons (`folder-symbolic`), so only the folder in the main view and the app launcher show the Drime logo. (A colored sidebar icon is possible via an `/etc/fstab` entry with `x-gvfs-icon=`, but that needs root and a per-machine manual step, so this project deliberately stays user-level.)
 
 ## Uninstall
 
