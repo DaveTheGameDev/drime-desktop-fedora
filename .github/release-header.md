@@ -1,6 +1,6 @@
 ## 📥 Which file do I download?
 
-**Fedora users: download `drime-desktop-<version>-1.fc44.noarch.rpm`** (the first file under *Assets* below), then double-click it — GNOME Software installs it. Afterwards open **Drime** from your applications and follow the wizard.
+**Fedora users: download the `drime-desktop-<version>-1.fcNN.noarch.rpm` file** (the first file under *Assets* below), then double-click it — GNOME Software installs it. Afterwards open **Drime** from your applications and follow the wizard.
 
 The other files are not needed for a normal install:
 - `*.src.rpm` — source package, for rebuilding the RPM

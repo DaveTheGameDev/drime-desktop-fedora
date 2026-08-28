@@ -129,6 +129,10 @@ install.sh / uninstall.sh   # thin wrappers for git-checkout installs
 .github/workflows/          # release build
 ```
 
+## Contributing
+
+Issues and pull requests are welcome. Bug reports are most useful with the output of `drime-desktop --status`, `journalctl --user -u rclone-drime-mount -u drime-bisync -n 50`, and your Fedora version. Licensed under the [MIT License](LICENSE).
+
 ---
 
 *Unofficial project, not affiliated with Drime. Built on [rclone](https://rclone.org/drime/) and [pydrime](https://pydrime.readthedocs.io/).*
