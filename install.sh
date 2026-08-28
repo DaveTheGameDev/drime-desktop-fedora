@@ -9,12 +9,14 @@ if command -v drime-desktop >/dev/null; then
     exec drime-desktop --install "$@"        # RPM is installed: use it
 fi
 
-missing=()
-for p in python3-gobject gtk4 libadwaita rclone fuse3; do
-    rpm -q "$p" >/dev/null 2>&1 || missing+=("$p")
-done
-if [ ${#missing[@]} -gt 0 ]; then
-    echo "Missing packages. Install them first:  sudo dnf install ${missing[*]}" >&2
-    exit 1
+if command -v rpm >/dev/null; then       # Fedora/RPM distros: check the packages
+    missing=()
+    for p in python3-gobject gtk4 libadwaita webkitgtk6.0 rclone fuse3; do
+        rpm -q "$p" >/dev/null 2>&1 || missing+=("$p")
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "Missing packages. Install them first:  sudo dnf install ${missing[*]}" >&2
+        exit 1
+    fi
 fi
 exec env PYTHONPATH="$PWD/src" DRIME_DESKTOP_SRC="$PWD" python3 -m drime_desktop.cli --install "$@"

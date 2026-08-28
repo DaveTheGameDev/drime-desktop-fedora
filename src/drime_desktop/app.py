@@ -257,7 +257,7 @@ class SettingsDialog(Adw.PreferencesDialog):
         dlg = Adw.AlertDialog.new("Remove your Drime setup?",
                                   "The virtual drive will be unmounted, syncing stopped and the web app "
                                   f"signed out. {backend.SYNC_DIR} and everything in your cloud account are kept.")
-        purge = Gtk.CheckButton(label="Also delete the API token (rclone remote)")
+        purge = Gtk.CheckButton(label="Also delete the API token (rclone remote) and uninstall pydrime")
         dlg.set_extra_child(purge)
         dlg.add_response("cancel", "Cancel")
         dlg.add_response("remove", "Remove")

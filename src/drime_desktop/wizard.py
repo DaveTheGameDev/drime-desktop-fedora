@@ -184,8 +184,9 @@ class WizardWindow(Adw.ApplicationWindow):
 
     def done_page(self):
         p = Step(self, "All set",
-                 "The Drime web app opens next. Use the menu in its title bar to see the status "
-                 "of the drive and the sync folder, sync now, check for updates or remove the setup.",
+                 "The Drime web app opens next. The status pill in its title bar shows the drive and "
+                 "sync state; the \u2630 menu has Sync now, and Settings (Ctrl+,) lets you toggle the "
+                 "drive and the sync folder, check for updates or remove the setup.",
                  "emblem-ok-symbolic")
         p.set_can_pop(False)
         p.buttons.append(button("Open Drime", lambda: self.on_finished(self), "suggested-action", "pill"))
