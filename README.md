@@ -44,7 +44,7 @@ The embedded view blocks third-party cookies; if a single-sign-on login fails in
 
 ## Updating
 
-- **Drime Desktop itself**: open **Drime → ☰ → Settings → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM to your Downloads folder and opens it in GNOME Software (or your default package handler), where you confirm the update. (Or download the new RPM from Releases and double-click it — same thing.)
+- **Drime Desktop itself**: the app checks GitHub Releases a few seconds after it opens and asks you when a newer version exists (*Download and install*, *Later* or *Skip this version*). You can also check by hand: **Drime → ☰ → Settings → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM to your Downloads folder and opens it in GNOME Software (or your default package handler), where you confirm the update. (Or download the new RPM from Releases and double-click it — same thing.)
 - **rclone and WebKitGTK** (the web engine) update with your normal system updates.
 
 Updates replace the systemd units under `/usr/lib/systemd/user/`; the running mount is not interrupted, new unit settings apply at the next login (or `systemctl --user daemon-reload && systemctl --user restart rclone-drime-mount`).

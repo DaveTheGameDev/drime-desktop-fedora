@@ -225,14 +225,18 @@ class SettingsDialog(Adw.PreferencesDialog):
                 self.update_row.set_subtitle(f"Version {__version__} — no releases published yet")
                 return
             if updates.is_newer(rel.version, __version__):
-                self._release = rel
-                self.update_row.set_subtitle(f"Version {__version__} — version {rel.version} is available")
-                self.update_install_btn.set_visible(rel.rpm_url is not None)
+                self.offer_release(rel)
                 if rel.rpm_url is None:
                     updates.open_releases_page()
             else:
                 self.update_row.set_subtitle(f"Version {__version__} — up to date")
         run_async(updates.fetch_latest, done)
+
+    def offer_release(self, rel: updates.Release) -> None:
+        """Show a newer release in the Updates row (from the manual check or the startup prompt)."""
+        self._release = rel
+        self.update_row.set_subtitle(f"Version {__version__} — version {rel.version} is available")
+        self.update_install_btn.set_visible(rel.rpm_url is not None)
 
     def download_update(self):
         rel = self._release
@@ -335,6 +339,7 @@ class MainWindow(Adw.ApplicationWindow):
         if notice:
             self.toast(notice)
         self._startup_migration()
+        GLib.timeout_add_seconds(5, lambda: (self._startup_update_check(), False)[1])
         self.connect("close-request", self._on_close)
 
     # --- menu / actions ------------------------------------------------------
@@ -448,6 +453,40 @@ class MainWindow(Adw.ApplicationWindow):
             backend.cleanup_legacy()
             return migrated
         run_async(work, done)
+
+    def _startup_update_check(self):
+        """Ask once per launch when a newer release is on GitHub; silent otherwise."""
+        def done(rel, err):
+            if err or rel is None or not updates.is_newer(rel.version, __version__):
+                return
+            if rel.version == updates.skipped_version():
+                return
+            self.settings.offer_release(rel)
+            dlg = Adw.AlertDialog.new(f"Drime Desktop {rel.version} is available",
+                                      f"You have version {__version__}. Download the update now? "
+                                      "The installation finishes in GNOME Software.")
+            dlg.add_response("later", "Later")
+            dlg.add_response("skip", "Skip this version")
+            if rel.rpm_url:
+                dlg.add_response("install", "Download and install")
+                dlg.set_response_appearance("install", Adw.ResponseAppearance.SUGGESTED)
+                dlg.set_default_response("install")
+            else:
+                dlg.add_response("open", "View release")
+                dlg.set_default_response("open")
+            dlg.set_close_response("later")
+
+            def on_response(_d, resp):
+                if resp == "skip":
+                    updates.skip_version(rel.version)
+                elif resp == "install":
+                    self.open_settings()
+                    self.settings.download_update()
+                elif resp == "open":
+                    updates.open_releases_page()
+            dlg.connect("response", on_response)
+            dlg.present(self)
+        run_async(updates.fetch_latest, done)
 
     # --- actions -----------------------------------------------------------
 

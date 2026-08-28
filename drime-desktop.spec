@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.3.2
+Version:        0.3.3
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -67,6 +67,10 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Fri Aug 28 2026 DaveTheGameDev - 0.3.3-1
+- Check for a new release automatically a few seconds after the app opens and
+  ask to download and install it (Later / Skip this version / Download and install).
+
 * Fri Aug 28 2026 DaveTheGameDev - 0.3.2-1
 - Fix the setup wizard reappearing on every launch when the drive or the
   sync folder had been skipped: only the account connection is required now.

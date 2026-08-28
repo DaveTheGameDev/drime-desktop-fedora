@@ -16,6 +16,7 @@ from . import GITHUB_REPO, __version__
 
 API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
+PREFS = Path.home() / ".config/drime-desktop/updates.json"
 
 
 class UpdateError(Exception):
@@ -90,6 +91,26 @@ def open_for_install(path: Path) -> None:
     else:
         cmd = ["gio", "open", str(path)]
     subprocess.Popen(cmd, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _prefs() -> dict:
+    try:
+        return json.loads(PREFS.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def skipped_version() -> str | None:
+    """Version the user chose to skip in the startup prompt, if any."""
+    return _prefs().get("skip")
+
+
+def skip_version(version: str) -> None:
+    try:
+        PREFS.parent.mkdir(parents=True, exist_ok=True)
+        PREFS.write_text(json.dumps({**_prefs(), "skip": version}))
+    except OSError:
+        pass
 
 
 def open_releases_page() -> None:
