@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.davethegamedev.DrimeDesktop</id>
+  <name>Drime</name>
+  <summary>Unofficial Drime cloud integration for Linux</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>Mounts your Drime cloud account as a virtual drive, keeps a two-way synced folder, and opens the Drime web app in its own window. Built on rclone's native Drime backend. Not affiliated with Drime.</p>
+  </description>
+  <launchable type="desktop-id">drime-desktop.desktop</launchable>
+  <url type="homepage">https://github.com/DaveTheGameDev/drime-desktop-fedora</url>
+  <url type="bugtracker">https://github.com/DaveTheGameDev/drime-desktop-fedora/issues</url>
+  <content_rating type="oars-1.1"/>
+  <provides>
+    <binary>drime-desktop</binary>
+  </provides>
+</component>

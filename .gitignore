@@ -6,3 +6,5 @@ rclone.conf
 # Editor/OS junk
 *~
 .DS_Store
+build/
+__pycache__/

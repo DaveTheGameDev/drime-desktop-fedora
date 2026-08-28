@@ -1,0 +1,53 @@
+name: Build RPM
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rpm:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install build tools
+        run: >
+          dnf install -y git make rpm-build rpmdevtools rpmlint python3-devel
+          systemd-rpm-macros desktop-file-utils libappstream-glib
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Trust workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Check tag matches spec version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          v="$(make -s version)"
+          test "v$v" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME != spec version v$v"; exit 1; }
+
+      - name: Build
+        run: make rpm lint
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpms
+          path: |
+            build/RPMS/noarch/*.rpm
+            build/SRPMS/*.src.rpm
+            build/SOURCES/*.tar.gz
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/RPMS/noarch/*.rpm
+            build/SRPMS/*.src.rpm
+            build/SOURCES/*.tar.gz
+          generate_release_notes: true

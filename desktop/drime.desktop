@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Drime
-Comment=Drime cloud storage
-Exec=@APP_CMD@ --app=https://app.drime.cloud
-Icon=@ICON_PATH@
-Terminal=false
-Categories=Network;FileTransfer;
-StartupWMClass=app.drime.cloud

@@ -1,0 +1,4 @@
+#!/usr/bin/python3
+import sys
+from drime_desktop.cli import main
+sys.exit(main())

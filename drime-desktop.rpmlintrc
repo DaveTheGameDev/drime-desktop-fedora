@@ -1,0 +1,5 @@
+# "rclone" is a product name, not a typo.
+addFilter(r"spelling-error .*rclone")
+addFilter(r"no-manual-page-for-binary drime-desktop")
+# libadwaita is a real runtime dependency (the Adw typelib lives there), not a stray lib dep.
+addFilter(r"explicit-lib-dependency libadwaita")

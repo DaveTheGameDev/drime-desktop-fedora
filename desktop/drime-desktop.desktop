@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Drime
+Comment=Set up and manage Drime cloud on this computer
+Exec=drime-desktop
+Icon=drime-desktop
+Terminal=false
+Categories=Network;
+Keywords=cloud;sync;drive;rclone;
+StartupNotify=true

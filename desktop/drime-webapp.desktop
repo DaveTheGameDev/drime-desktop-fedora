@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Drime Web
+Comment=Open app.drime.cloud in its own window
+Exec=drime-desktop --open-web
+Icon=drime-desktop
+Terminal=false
+Categories=Network;FileTransfer;
+Keywords=cloud;drime;
+StartupWMClass=app.drime.cloud
