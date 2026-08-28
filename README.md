@@ -100,7 +100,7 @@ In this mode the systemd units are copied to `~/.config/systemd/user/`. If you l
 5. `rclone bisync ~/DrimeSync drime:Sync --size-only --create-empty-src-dirs --check-access --resync`
 6. `systemctl --user enable --now drime-bisync.timer`
 
-The launcher (`drime-desktop.desktop`) and the icon are installed system-wide by the package. The web app is rendered by WebKitGTK (`webkitgtk6.0`, the same engine as GNOME Web) inside the app's own window; its cookies and cache live in `~/.local/share/drime-desktop` and `~/.cache/drime-desktop`.
+The launcher (`io.github.davethegamedev.DrimeDesktop.desktop`) and the icon are installed system-wide by the package. The web app is rendered by WebKitGTK (`webkitgtk6.0`, the same engine as GNOME Web) inside the app's own window; its cookies and cache live in `~/.local/share/drime-desktop` and `~/.cache/drime-desktop`.
 </details>
 
 ## Building the RPM
@@ -123,7 +123,7 @@ Makefile                    # make rpm / lint / install-local
 src/drime_desktop/          # Python package: backend (rclone/systemd), GTK app, embedded web view, wizard, updates, CLI
 bin/drime-desktop           # launcher
 systemd/                    # user units: mount service, bisync service + timer
-desktop/                    # drime-desktop.desktop
+desktop/                    # io.github.davethegamedev.DrimeDesktop.desktop (launcher)
 assets/                     # icon, AppStream metainfo
 install.sh / uninstall.sh   # thin wrappers for git-checkout installs
 .github/workflows/          # release build

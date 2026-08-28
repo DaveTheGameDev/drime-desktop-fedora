@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.3.0
+Version:        0.3.1
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -45,7 +45,7 @@ install -D -m 0755 bin/drime-desktop %{buildroot}%{_bindir}/drime-desktop
 install -D -m 0644 systemd/rclone-drime-mount.service %{buildroot}%{_userunitdir}/rclone-drime-mount.service
 install -D -m 0644 systemd/drime-bisync.service       %{buildroot}%{_userunitdir}/drime-bisync.service
 install -D -m 0644 systemd/drime-bisync.timer         %{buildroot}%{_userunitdir}/drime-bisync.timer
-install -D -m 0644 desktop/drime-desktop.desktop %{buildroot}%{_datadir}/applications/drime-desktop.desktop
+install -D -m 0644 desktop/io.github.davethegamedev.DrimeDesktop.desktop %{buildroot}%{_datadir}/applications/io.github.davethegamedev.DrimeDesktop.desktop
 install -D -m 0644 assets/drime.png %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/drime-desktop.png
 install -D -m 0644 assets/io.github.davethegamedev.DrimeDesktop.metainfo.xml \
     %{buildroot}%{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
@@ -62,11 +62,15 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_userunitdir}/rclone-drime-mount.service
 %{_userunitdir}/drime-bisync.service
 %{_userunitdir}/drime-bisync.timer
-%{_datadir}/applications/drime-desktop.desktop
+%{_datadir}/applications/io.github.davethegamedev.DrimeDesktop.desktop
 %{_datadir}/icons/hicolor/512x512/apps/drime-desktop.png
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Fri Aug 28 2026 DaveTheGameDev - 0.3.1-1
+- Fix the missing icon in the dock: the launcher is now named after the
+  application ID so GNOME Shell can match the window to it.
+
 * Fri Aug 28 2026 DaveTheGameDev - 0.3.0-1
 - Single "Drime" app: the web app is now embedded with WebKitGTK; no
   Chromium/Flatpak needed and the separate "Drime Web" launcher is gone.
