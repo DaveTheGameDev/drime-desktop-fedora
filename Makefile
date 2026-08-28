@@ -5,7 +5,7 @@ TOPDIR  := $(CURDIR)/build
 # e.g. make rpm RPMBUILD_OPTS=--nodeps when python3-devel is not installed
 RPMBUILD_OPTS ?=
 
-.PHONY: version tarball srpm rpm lint install-local clean
+.PHONY: version tarball srpm rpm lint install-local release clean
 
 version:
 	@echo $(VERSION)
@@ -27,6 +27,15 @@ lint:
 
 install-local:
 	sudo dnf install -y $(TOPDIR)/RPMS/noarch/$(NAME)-$(VERSION)-*.noarch.rpm
+
+# Manual release (when not using the GitHub Actions workflow): builds the RPM and
+# publishes it with the standard "which file do I download?" header. Pass extra
+# notes with NOTES="- fixed X". The tag v$(VERSION) must already be pushed.
+release: rpm
+	@sed 's/drime-desktop-<version>-1.fcNN.noarch.rpm/$(notdir $(wildcard build/RPMS/noarch/*.rpm))/' .github/release-header.md > build/release-notes.md
+	@printf '\n## What'"'"'s changed\n\n%s\n\n**Full Changelog**: https://github.com/DaveTheGameDev/drime-desktop-fedora/commits/v$(VERSION)\n' "$(NOTES)" >> build/release-notes.md
+	gh release create v$(VERSION) build/RPMS/noarch/*.rpm build/SRPMS/*.src.rpm build/SOURCES/*.tar.gz \
+	    --title v$(VERSION) --notes-file build/release-notes.md
 
 clean:
 	rm -rf $(TOPDIR)
