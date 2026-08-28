@@ -1,4 +1,4 @@
-"""First-run setup wizard (token → browser → drive → sync)."""
+"""First-run setup wizard (token → drive → sync)."""
 from __future__ import annotations
 
 from typing import Callable
@@ -82,13 +82,8 @@ class WizardWindow(Adw.ApplicationWindow):
     # Page order; each `next_*` skips steps that are already done.
     def go_token(self):
         if self.state.remote:
-            return self.go_browser()
-        self.nav.push(self.token_page())
-
-    def go_browser(self):
-        if self.state.browser:
             return self.go_drive()
-        self.nav.push(self.browser_page())
+        self.nav.push(self.token_page())
 
     def go_drive(self):
         if self.state.mount_enabled:
@@ -108,7 +103,7 @@ class WizardWindow(Adw.ApplicationWindow):
     def welcome_page(self):
         p = Step(self, "Welcome to Drime",
                  "This sets up your Drime cloud on this computer: a virtual drive in your home folder, "
-                 "a two-way synced folder, and the Drime web app in its own window.",
+                 "a two-way synced folder, and the Drime web app right here in this window.",
                  "drime-desktop")
         icon = backend.icon_path()
         if icon is not None:  # works before the RPM icon is in the theme cache / from a git checkout
@@ -142,29 +137,10 @@ class WizardWindow(Adw.ApplicationWindow):
                     raise RuntimeError("Drime rejected this token. Check it and try again.")
             def ok(_r):
                 self.state.remote = True
-                self.go_browser()
+                self.go_drive()
             p.run_step(work, ok)
         entry.connect("entry-activated", lambda *_: connect())
         p.buttons.append(button("Connect", connect, "suggested-action", "pill"))
-        p.finish_layout()
-        return p
-
-    def browser_page(self):
-        p = Step(self, "Web app window",
-                 "The Drime web app opens in its own window using a Chromium-based browser. "
-                 "None was found on this computer. Install Chromium from Flathub now, or skip this "
-                 "(you can install it later from the Drime app).",
-                 "network-server-symbolic")
-        def install():
-            p.log.set_visible(True)
-            def ok(success):
-                if not success:
-                    return p.fail("Installation failed; see the log above.")
-                self.state.browser = backend.find_browser()
-                self.go_drive()
-            p.run_step(lambda: backend.install_chromium_flatpak(p.log.append), ok)
-        p.buttons.append(button("Skip", self.go_drive, "pill"))
-        p.buttons.append(button("Install Chromium", install, "suggested-action", "pill"))
         p.finish_layout()
         return p
 
@@ -208,8 +184,8 @@ class WizardWindow(Adw.ApplicationWindow):
 
     def done_page(self):
         p = Step(self, "All set",
-                 "Find “Drime” in your applications to see the status, sync now, check for updates, "
-                 "or remove the setup. “Drime Web” opens the web app.",
+                 "The Drime web app opens next. Use the menu in its title bar to see the status "
+                 "of the drive and the sync folder, sync now, check for updates or remove the setup.",
                  "emblem-ok-symbolic")
         p.set_can_pop(False)
         p.buttons.append(button("Open Drime", lambda: self.on_finished(self), "suggested-action", "pill"))

@@ -1,6 +1,6 @@
 # Drime Desktop for Linux (unofficial)
 
-[Drime](https://drime.cloud) only ships its desktop app for Windows and macOS. This project recreates the desktop experience on Fedora Linux using [rclone's native Drime backend](https://rclone.org/drime/) — an integration [officially announced by Drime](https://drime.cloud/blog-posts/drime-now-supports-native-rclone-integration) — plus a small GNOME app that sets everything up and keeps it running. No reverse engineering, no Wine: just supported APIs.
+[Drime](https://drime.cloud) only ships its desktop app for Windows and macOS. This project recreates the desktop experience on Fedora Linux using [rclone's native Drime backend](https://rclone.org/drime/) — an integration [officially announced by Drime](https://drime.cloud/blog-posts/drime-now-supports-native-rclone-integration) — plus a single GNOME app that shows the Drime web app, sets everything up and keeps it running. One RPM, one icon, no browser or Flatpak to install. No reverse engineering, no Wine: just supported APIs.
 
 ## What you get
 
@@ -8,16 +8,14 @@
 |---|---|---|
 | `~/Drime` | Virtual drive: your whole account mounted on demand with local caching (`rclone mount`, VFS full cache), auto-mounted at login, visible in your file manager's sidebar | The virtual "Drime drive" |
 | `~/DrimeSync` | Two-way synced folder mirroring the `Sync` folder of your cloud every 15 minutes (`rclone bisync` + systemd timer) | Dropbox-style sync folder |
-| **Drime** launcher | Control panel: setup wizard, status (drive, last/next sync), sync now, check for updates, update the browser, remove the setup — see [Two launchers](#two-launchers-drime-and-drime-web) | The app's settings / tray menu |
-| **Drime Web** launcher | app.drime.cloud in its own window (Chromium `--app` mode) for sharing, previews, account settings | The app's UI |
+| **Drime** app | One window: the Drime web app (app.drime.cloud, embedded with WebKitGTK) for sharing, previews and account settings, plus a title-bar status pill and a Settings dialog for the drive, the sync folder, updates and removal — see [The Drime window](#the-drime-window) | The app's UI + tray menu |
 | `pydrime` (optional) | Third-party CLI for scripted uploads/downloads | — |
 
 ## Requirements
 
 - **Fedora Workstation** (developed on Fedora 44 / GNOME). Other systemd + GTK4 distributions can use the [git checkout](#advanced-install-from-a-git-checkout) path.
 - A Drime account and an **API token**: app.drime.cloud → **Settings → Developer → create token**
-- Everything else (`rclone ≥ 1.73`, `fuse3`, GTK4/libadwaita) is pulled in by the package.
-- For the web-app window: a Chromium-based browser. If none is installed the setup offers to install Chromium from Flathub.
+- Everything else (`rclone ≥ 1.73`, `fuse3`, GTK4/libadwaita, WebKitGTK) is a regular Fedora package that GNOME Software/`dnf` pulls in automatically when you install the RPM — nothing to install by hand.
 
 ## Install
 
@@ -27,26 +25,21 @@
 
 The token goes straight into `~/.config/rclone/rclone.conf` and nowhere else.
 
-## Two launchers: "Drime" and "Drime Web"
+## The Drime window
 
-After installing you'll find **two** entries in your applications grid. They do different jobs:
+Opening **Drime** gives you one window:
 
-| | **Drime** | **Drime Web** |
-|---|---|---|
-| What it is | The control panel of this project (a small GNOME app) | The Drime website, app.drime.cloud, opened in its own window without browser tabs or address bar |
-| Use it to | Run the first-time setup, see if the drive is mounted and when the last sync ran, *Sync now*, check for updates, update the browser, remove the setup | Do everything you'd do on the website: share links, previews, trash, account and plan settings, workspaces, comments, notes… |
-| How often | Rarely — the drive and the sync run on their own in the background; you don't need to keep it open | Whenever you need a feature that isn't "files on disk" |
-| Needs | Nothing extra | A Chromium-based browser (the setup offers to install Chromium from Flathub if you have none) |
+- **The web app** fills it: sign in once and you stay signed in (the login is stored under `~/.local/share/drime-desktop`, private to this app). Share links, previews, trash, settings, comments — everything the website does. Files you download land in `~/Downloads` (a toast offers to open them); uploads and drag-and-drop work as on the website. Links that would open a new tab open in your normal browser.
+- **The status pill** in the title bar — e.g. *Drive mounted · synced 3 min ago* — turns orange if the drive is down or the last sync failed. Click it to open Settings.
+- **The menu (☰)**: *Open Drime folder*, *Open Sync folder*, *Sync now*, *Open in browser*, *Settings*, *About*.
+- **Settings** (Ctrl+,): switch the virtual drive and the sync folder on/off, see the sync log, check for updates, remove the setup.
 
-In short: your **files** live in `~/Drime` and `~/DrimeSync` in your file manager, **Drime** keeps that working, and **Drime Web** is the cloud's own interface for everything else. The official Windows/macOS app bundles both into one program with a tray icon; on Linux they're two launchers.
-
-The web window is a normal browser window under the hood: it shares logins, extensions and updates with the Chromium/Brave it runs in, and it groups under its own "Drime Web" icon in the dock. Closing it doesn't affect the drive or the sync.
+The drive and the sync folder run in the background as systemd user services — closing the window doesn't stop them; you only need the window for the web app or to check on things. Shortcuts: Ctrl+R reload, Ctrl+S sync now, Ctrl+/− zoom, Ctrl+Q quit.
 
 ## Updating
 
 - **Drime Desktop itself**: open **Drime → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM and opens it in GNOME Software, where you confirm the update. (Or download the new RPM from Releases and double-click it — same thing.)
-- **The browser that hosts the web app** (Chromium/Brave Flatpak): **Drime → Updates → Update**, or *Open in Software*. GNOME Software also updates Flatpaks automatically with the rest of your system.
-- **rclone** updates with your normal system updates.
+- **rclone and WebKitGTK** (the web engine) update with your normal system updates.
 
 Updates replace the systemd units under `/usr/lib/systemd/user/`; the running mount is not interrupted, new unit settings apply at the next login (or `systemctl --user daemon-reload && systemctl --user restart rclone-drime-mount`).
 
@@ -55,8 +48,8 @@ Updates replace the systemd units under `/usr/lib/systemd/user/`; the running mo
 - Work in `~/Drime` for anything in your account — saves upload automatically (files are cached locally up to 10 GB, so recently used files open instantly).
 - Drop things in `~/DrimeSync` for an always-mirrored offline copy of the cloud's `Sync` folder.
 - **Do not delete `~/DrimeSync/RCLONE_TEST`** — it's a safety marker; sync aborts rather than mass-deleting if either side ever looks wrong.
-- The **Drime** app shows whether the drive is mounted and when the last sync ran; *Sync now* runs it immediately; the *Sync log* row shows the journal.
-- Open **Drime Web** for anything the file manager can't do (share links, trash, account settings).
+- The **Drime** window's status pill shows whether the drive is mounted and when the last sync ran; *Sync now* is in the menu; the *Sync log* row in Settings shows the journal.
+- Use the web app in the same window for anything the file manager can't do (share links, trash, account settings).
 
 Terminal equivalents:
 
@@ -65,12 +58,12 @@ drime-desktop --status                       # same info as the app
 systemctl --user status rclone-drime-mount   # mount health
 systemctl --user start drime-bisync          # sync right now
 journalctl --user -u drime-bisync -e         # sync logs
-drime-desktop --help                         # --install, --uninstall, --open-web, --check-update
+drime-desktop --help                         # --install, --uninstall, --check-update
 ```
 
 ## Uninstall
 
-1. **Drime → Remove → Remove my setup…** (or `drime-desktop --uninstall`, add `--purge-config` to also delete the API token). This unmounts the drive, disables the timer and removes the bookmark, caches and sync state.
+1. **Drime → ☰ → Settings → Remove my setup…** (or `drime-desktop --uninstall`, add `--purge-config` to also delete the API token). This unmounts the drive, disables the timer and removes the bookmark, caches, sync state and the web app's login data.
 2. Uninstall the *Drime* package in GNOME Software, or `sudo dnf remove drime-desktop`.
 
 What is **kept**: `~/DrimeSync` and everything in your cloud account — always; plus your API token (rclone remote) and pydrime config unless you chose to delete them.
@@ -88,10 +81,10 @@ What is **kept**: `~/DrimeSync` and everything in your cloud account — always;
 For other distributions, or to hack on it, without the RPM:
 
 ```bash
-sudo dnf install python3-gobject gtk4 libadwaita rclone fuse3   # or your distro's equivalents
+sudo dnf install python3-gobject gtk4 libadwaita webkitgtk6.0 rclone fuse3   # or your distro's equivalents
 git clone https://github.com/DaveTheGameDev/drime-desktop-fedora.git
 cd drime-desktop-fedora
-./install.sh                 # terminal wizard; add --with-pydrime for the CLI, --install-browser to fetch Chromium
+./install.sh                 # terminal wizard; add --with-pydrime for the CLI
 PYTHONPATH=src DRIME_DESKTOP_SRC=$PWD python3 -m drime_desktop.cli    # the GUI, from the checkout
 ```
 
@@ -103,12 +96,11 @@ In this mode the systemd units are copied to `~/.config/systemd/user/`. If you l
 1. `rclone config create drime drime access_token=<TOKEN>` and `rclone about drime:` to verify it
 2. `systemctl --user enable --now rclone-drime-mount.service` (units from `/usr/lib/systemd/user/` or `systemd/`)
 3. Add `~/Drime` to `~/.config/gtk-3.0/bookmarks`; `gio set ~/Drime metadata::custom-icon file:///usr/share/icons/hicolor/512x512/apps/drime-desktop.png`
-4. If no Chromium-based browser is found: optionally `flatpak install --user flathub org.chromium.Chromium`
-5. `mkdir ~/DrimeSync && touch ~/DrimeSync/RCLONE_TEST && rclone copy ~/DrimeSync/RCLONE_TEST drime:Sync/`
-6. `rclone bisync ~/DrimeSync drime:Sync --size-only --create-empty-src-dirs --check-access --resync`
-7. `systemctl --user enable --now drime-bisync.timer`
+4. `mkdir ~/DrimeSync && touch ~/DrimeSync/RCLONE_TEST && rclone copy ~/DrimeSync/RCLONE_TEST drime:Sync/`
+5. `rclone bisync ~/DrimeSync drime:Sync --size-only --create-empty-src-dirs --check-access --resync`
+6. `systemctl --user enable --now drime-bisync.timer`
 
-The launchers (`drime-desktop.desktop`, `drime-webapp.desktop`) and the icon are installed system-wide by the package; *Drime Web* runs `drime-desktop --open-web`, which picks the browser at launch time (Flatpak Chromium → Flatpak Brave → chromium → google-chrome).
+The launcher (`drime-desktop.desktop`) and the icon are installed system-wide by the package. The web app is rendered by WebKitGTK (`webkitgtk6.0`, the same engine as GNOME Web) inside the app's own window; its cookies and cache live in `~/.local/share/drime-desktop` and `~/.cache/drime-desktop`.
 </details>
 
 ## Building the RPM
@@ -128,10 +120,10 @@ make install-local       # sudo dnf install it
 ```
 drime-desktop.spec          # RPM spec (single source of the version)
 Makefile                    # make rpm / lint / install-local
-src/drime_desktop/          # Python package: backend (rclone/systemd/flatpak), GTK app, wizard, updates, CLI
+src/drime_desktop/          # Python package: backend (rclone/systemd), GTK app, embedded web view, wizard, updates, CLI
 bin/drime-desktop           # launcher
 systemd/                    # user units: mount service, bisync service + timer
-desktop/                    # drime-desktop.desktop (app), drime-webapp.desktop (web window)
+desktop/                    # drime-desktop.desktop
 assets/                     # icon, AppStream metainfo
 install.sh / uninstall.sh   # thin wrappers for git-checkout installs
 .github/workflows/          # release build

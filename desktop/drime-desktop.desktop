@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=Drime
-Comment=Set up and manage Drime cloud on this computer
+Comment=Drime cloud storage: web app, virtual drive and sync folder
 Exec=drime-desktop
 Icon=drime-desktop
 Terminal=false
-Categories=Network;
-Keywords=cloud;sync;drive;rclone;
+Categories=Network;FileTransfer;
+Keywords=cloud;sync;drive;storage;rclone;
 StartupNotify=true

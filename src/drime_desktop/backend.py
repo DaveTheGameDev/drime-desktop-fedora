@@ -1,4 +1,4 @@
-"""All system-level operations (rclone, systemd, flatpak, files).
+"""All system-level operations (rclone, systemd, files).
 
 Pure Python + subprocess. No GTK imports, so it is usable from the CLI, the
 GUI, and tests. Every function is idempotent where it makes sense.
@@ -33,8 +33,8 @@ ICON_USER = HOME / ".local/share/icons/drime.png"
 LEGACY_LAUNCHER = HOME / ".local/share/applications/drime.desktop"
 BOOKMARKS = HOME / ".config/gtk-3.0/bookmarks"
 RCLONE_CACHE = HOME / ".cache/rclone"
-CHROMIUM_FLATPAK = "org.chromium.Chromium"
-FLATHUB_REPO = "https://dl.flathub.org/repo/flathub.flatpakrepo"
+WEB_DATA_DIR = HOME / ".local/share/drime-desktop/web"   # WebKit cookies/local storage (login)
+WEB_CACHE_DIR = HOME / ".cache/drime-desktop/web"
 
 # Set by install.sh/uninstall.sh when running from a git checkout (no RPM).
 SRC_DIR = Path(os.environ["DRIME_DESKTOP_SRC"]) if os.environ.get("DRIME_DESKTOP_SRC") else None
@@ -245,72 +245,6 @@ def folder_icon_unset() -> None:
     run(["gio", "set", "-t", "unset", str(MOUNT), "metadata::custom-icon"])
 
 
-# --- Web app / browser -------------------------------------------------------
-
-@dataclass(frozen=True)
-class Browser:
-    name: str
-    cmd: tuple[str, ...]
-    flatpak_id: str | None = None
-
-
-_BROWSERS = (
-    ("Chromium (Flatpak)", ("flatpak", "run", CHROMIUM_FLATPAK), CHROMIUM_FLATPAK),
-    ("Brave (Flatpak)", ("flatpak", "run", "com.brave.Browser"), "com.brave.Browser"),
-    ("Chromium", ("chromium",), None),
-    ("Chromium", ("chromium-browser",), None),
-    ("Google Chrome", ("google-chrome",), None),
-)
-
-
-def flatpak_installed(app_id: str) -> bool:
-    return bool(shutil.which("flatpak")) and run(["flatpak", "info", app_id]).returncode == 0
-
-
-def find_browser() -> Browser | None:
-    for name, cmd, fp in _BROWSERS:
-        if fp is not None:
-            if flatpak_installed(fp):
-                return Browser(name, cmd, fp)
-        elif shutil.which(cmd[0]):
-            return Browser(name, cmd, None)
-    return None
-
-
-def browser_cmd(browser: Browser, url: str = WEB_URL) -> list[str]:
-    return [*browser.cmd, f"--app={url}"]
-
-
-def open_web_app(browser: Browser) -> None:
-    subprocess.Popen(browser_cmd(browser), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     start_new_session=True)
-
-
-def install_chromium_flatpak(log: LogCb = _noop) -> bool:
-    if not shutil.which("flatpak"):
-        log("flatpak is not installed (sudo dnf install flatpak)")
-        return False
-    rc = run_logged(["flatpak", "remote-add", "--user", "--if-not-exists", "flathub", FLATHUB_REPO], log)
-    if rc != 0:
-        return False
-    rc = run_logged(["flatpak", "install", "--user", "-y", "--noninteractive", "flathub", CHROMIUM_FLATPAK], log)
-    return rc == 0
-
-
-def update_browser_flatpak(browser: Browser, log: LogCb = _noop) -> bool:
-    if browser.flatpak_id is None:
-        log("The browser is not a Flatpak; update it with your system updates.")
-        return False
-    return run_logged(["flatpak", "update", "-y", "--noninteractive", browser.flatpak_id], log) == 0
-
-
-def open_in_software(app_id: str) -> bool:
-    if not shutil.which("gnome-software"):
-        return False
-    subprocess.Popen(["gnome-software", f"--details={app_id}"], start_new_session=True)
-    return True
-
-
 # --- Sync folder -------------------------------------------------------------
 
 def bisync_initialized() -> bool:
@@ -403,7 +337,6 @@ class State:
     mounted: bool
     sync_enabled: bool
     sync_initialized: bool
-    browser: Browser | None
     user_unit_copies: list[str]
     packaged_units: bool
 
@@ -421,7 +354,6 @@ def state() -> State:
         mounted=is_mounted(),
         sync_enabled=is_enabled(SYNC_TIMER),
         sync_initialized=bisync_initialized(),
-        browser=find_browser(),
         user_unit_copies=user_unit_copies(),
         packaged_units=packaged_units_available(),
     )
@@ -446,8 +378,7 @@ def cleanup_legacy() -> bool:
 
 # --- Full install / uninstall (CLI and wizard share these) --------------------
 
-def install_all(token: str | None, log: LogCb = _noop, with_pydrime: bool = False,
-                install_browser: bool = False) -> None:
+def install_all(token: str | None, log: LogCb = _noop, with_pydrime: bool = False) -> None:
     problems = preflight()
     if problems:
         raise RuntimeError("\n".join(problems))
@@ -465,12 +396,6 @@ def install_all(token: str | None, log: LogCb = _noop, with_pydrime: bool = Fals
     if folder_icon_set():
         log("Drime icon applied to the folder")
     cleanup_legacy()
-
-    if find_browser() is None:
-        if install_browser:
-            install_chromium_flatpak(log)
-        else:
-            log("WARNING: no Chromium-based browser found; the web app launcher needs one.")
 
     sync_enable(log)
 
@@ -507,7 +432,9 @@ def uninstall_all(purge_config: bool = False, log: LogCb = _noop) -> None:
         MOUNT.rmdir()
     except OSError:
         pass
-    log("rclone caches and sync state removed")
+    shutil.rmtree(WEB_DATA_DIR.parent, ignore_errors=True)
+    shutil.rmtree(WEB_CACHE_DIR.parent, ignore_errors=True)
+    log("rclone caches, sync state and web app data (login) removed")
 
     if purge_config:
         delete_remote()
