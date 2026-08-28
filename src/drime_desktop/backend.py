@@ -342,7 +342,10 @@ class State:
 
     @property
     def configured(self) -> bool:
-        return self.remote and self.mount_enabled and self.sync_enabled
+        """The account is connected. Drive and sync are optional (the wizard
+        lets you skip them and Settings can toggle them later), so they must
+        not decide whether the first-run wizard shows again."""
+        return self.remote
 
 
 def state() -> State:
