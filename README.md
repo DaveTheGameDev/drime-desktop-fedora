@@ -8,8 +8,8 @@
 |---|---|---|
 | `~/Drime` | Virtual drive: your whole account mounted on demand with local caching (`rclone mount`, VFS full cache), auto-mounted at login, visible in your file manager's sidebar | The virtual "Drime drive" |
 | `~/DrimeSync` | Two-way synced folder mirroring the `Sync` folder of your cloud every 15 minutes (`rclone bisync` + systemd timer) | Dropbox-style sync folder |
-| **Drime** app | Setup wizard, status (drive, last/next sync), sync now, check for updates, update the browser, remove the setup | The app's settings / tray menu |
-| **Drime Web** app | app.drime.cloud in its own window (Chromium `--app` mode) for sharing, previews, settings | The app's UI |
+| **Drime** launcher | Control panel: setup wizard, status (drive, last/next sync), sync now, check for updates, update the browser, remove the setup — see [Two launchers](#two-launchers-drime-and-drime-web) | The app's settings / tray menu |
+| **Drime Web** launcher | app.drime.cloud in its own window (Chromium `--app` mode) for sharing, previews, account settings | The app's UI |
 | `pydrime` (optional) | Third-party CLI for scripted uploads/downloads | — |
 
 ## Requirements
@@ -27,6 +27,21 @@
 
 The token goes straight into `~/.config/rclone/rclone.conf` and nowhere else.
 
+## Two launchers: "Drime" and "Drime Web"
+
+After installing you'll find **two** entries in your applications grid. They do different jobs:
+
+| | **Drime** | **Drime Web** |
+|---|---|---|
+| What it is | The control panel of this project (a small GNOME app) | The Drime website, app.drime.cloud, opened in its own window without browser tabs or address bar |
+| Use it to | Run the first-time setup, see if the drive is mounted and when the last sync ran, *Sync now*, check for updates, update the browser, remove the setup | Do everything you'd do on the website: share links, previews, trash, account and plan settings, workspaces, comments, notes… |
+| How often | Rarely — the drive and the sync run on their own in the background; you don't need to keep it open | Whenever you need a feature that isn't "files on disk" |
+| Needs | Nothing extra | A Chromium-based browser (the setup offers to install Chromium from Flathub if you have none) |
+
+In short: your **files** live in `~/Drime` and `~/DrimeSync` in your file manager, **Drime** keeps that working, and **Drime Web** is the cloud's own interface for everything else. The official Windows/macOS app bundles both into one program with a tray icon; on Linux they're two launchers.
+
+The web window is a normal browser window under the hood: it shares logins, extensions and updates with the Chromium/Brave it runs in, and it groups under its own "Drime Web" icon in the dock. Closing it doesn't affect the drive or the sync.
+
 ## Updating
 
 - **Drime Desktop itself**: open **Drime → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM and opens it in GNOME Software, where you confirm the update. (Or download the new RPM from Releases and double-click it — same thing.)
@@ -41,6 +56,7 @@ Updates replace the systemd units under `/usr/lib/systemd/user/`; the running mo
 - Drop things in `~/DrimeSync` for an always-mirrored offline copy of the cloud's `Sync` folder.
 - **Do not delete `~/DrimeSync/RCLONE_TEST`** — it's a safety marker; sync aborts rather than mass-deleting if either side ever looks wrong.
 - The **Drime** app shows whether the drive is mounted and when the last sync ran; *Sync now* runs it immediately; the *Sync log* row shows the journal.
+- Open **Drime Web** for anything the file manager can't do (share links, trash, account settings).
 
 Terminal equivalents:
 
