@@ -32,8 +32,7 @@ install-local:
 # publishes it with the standard "which file do I download?" header. Pass extra
 # notes with NOTES="- fixed X". The tag v$(VERSION) must already be pushed.
 release: rpm
-	@sed 's/drime-desktop-<version>-1.fcNN.noarch.rpm/$(notdir $(wildcard build/RPMS/noarch/*.rpm))/' .github/release-header.md > build/release-notes.md
-	@printf '\n## What'"'"'s changed\n\n%s\n\n**Full Changelog**: https://github.com/DaveTheGameDev/drime-desktop-fedora/commits/v$(VERSION)\n' "$(NOTES)" >> build/release-notes.md
+	scripts/release-notes.sh $(VERSION) $(notdir $(wildcard build/RPMS/noarch/*.rpm)) > build/release-notes.md
 	gh release create v$(VERSION) build/RPMS/noarch/*.rpm build/SRPMS/*.src.rpm build/SOURCES/*.tar.gz \
 	    --title v$(VERSION) --notes-file build/release-notes.md
 

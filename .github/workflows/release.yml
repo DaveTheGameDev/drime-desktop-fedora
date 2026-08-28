@@ -42,13 +42,16 @@ jobs:
             build/SRPMS/*.src.rpm
             build/SOURCES/*.tar.gz
 
+      - name: Release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: scripts/release-notes.sh "$(make -s version)" "$(basename build/RPMS/noarch/*.rpm)" > build/release-notes.md
+
       - name: Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          body_path: .github/release-header.md
+          body_path: build/release-notes.md
           files: |
             build/RPMS/noarch/*.rpm
             build/SRPMS/*.src.rpm
             build/SOURCES/*.tar.gz
-          generate_release_notes: true
