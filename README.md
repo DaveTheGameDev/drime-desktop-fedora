@@ -107,13 +107,13 @@ The launcher (`io.github.davethegamedev.DrimeDesktop.desktop`) and the icon are 
 
 ```bash
 sudo dnf install rpm-build rpmdevtools rpmlint python3-devel systemd-rpm-macros desktop-file-utils libappstream-glib
-make rpm lint            # -> build/RPMS/noarch/drime-desktop-<version>-1.fc44.noarch.rpm
+make rpm lint            # -> build/RPMS/noarch/drime-desktop-<version>-1.fcNN.noarch.rpm
 make install-local       # sudo dnf install it
 ```
 
 (`make rpm RPMBUILD_OPTS=--nodeps` builds without `python3-devel`.)
 
-**Releasing**: bump `Version:` and `%changelog` in `drime-desktop.spec`, commit, then `git tag v<version> && git push --tags`. The [GitHub Actions workflow](.github/workflows/release.yml) builds the RPM in a Fedora container, lints it and attaches the `.rpm`, `.src.rpm` and source tarball to a GitHub Release. The tag must match the spec version. The app's *Check for updates* reads the latest release through the public GitHub API, so it only sees releases once the repository is public.
+**Releasing**: bump `Version:` and `%changelog` in `drime-desktop.spec`, commit, then `git tag v<version> && git push --tags`. The [GitHub Actions workflow](.github/workflows/release.yml) builds the RPM in a Fedora container, lints it and attaches the `.rpm`, `.src.rpm` and source tarball to a GitHub Release. The tag must match the spec version. The app's *Check for updates* reads the latest release through the public GitHub API.
 
 ## Repo layout
 
