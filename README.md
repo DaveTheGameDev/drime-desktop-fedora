@@ -2,6 +2,8 @@
 
 [Drime](https://drime.cloud) only ships its desktop app for Windows and macOS. This project recreates the desktop experience on Fedora Linux using [rclone's native Drime backend](https://rclone.org/drime/) — an integration [officially announced by Drime](https://drime.cloud/blog-posts/drime-now-supports-native-rclone-integration) — plus a single GNOME app that shows the Drime web app, sets everything up and keeps it running. One RPM, one icon, no browser or Flatpak to install. No reverse engineering, no Wine: just supported APIs.
 
+<p align="center"><img src="assets/screenshots/main-window.png" alt="The Drime window: the web app with the drive/sync status pill in the title bar" width="800"></p>
+
 ## What you get
 
 | Component | What it is | Official-app equivalent |
@@ -27,7 +29,9 @@ The token goes straight into `~/.config/rclone/rclone.conf` and nowhere else.
 
 ## The Drime window
 
-Opening **Drime** gives you one window:
+<p align="center"><img src="assets/screenshots/wizard-welcome.png" alt="Setup wizard: welcome" width="260"> <img src="assets/screenshots/wizard-sync.png" alt="Setup wizard: sync folder" width="260"> <img src="assets/screenshots/wizard-done.png" alt="Setup wizard: all set" width="260"></p>
+
+After the first-run wizard, opening **Drime** gives you one window:
 
 - **The web app** fills it: sign in once and you stay signed in (the login is stored under `~/.local/share/drime-desktop`, private to this app). Share links, previews, trash, settings, comments — everything the website does. Files you download land in your Downloads folder (a toast offers to open them); uploads and drag-and-drop work as on the website. Links that would open a new tab open in your normal browser.
 - **The status pill** in the title bar — e.g. *Drive mounted · synced 3 min ago* — is green when all is well and turns orange if the drive is down or the last sync failed. Click it to open Settings. If app.drime.cloud can't be reached, the window shows an offline notice with a *Retry* button.
