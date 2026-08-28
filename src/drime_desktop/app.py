@@ -305,6 +305,8 @@ class MainWindow(Adw.ApplicationWindow):
         super().__init__(application=app, title="Drime", default_width=1100, default_height=750)
         self._restore_size()
         self._tick_id: int | None = None
+        self._boot_version = updates.installed_version()
+        self._restart_offered = False
         self.settings = SettingsDialog(self)
 
         self.toasts = Adw.ToastOverlay()
@@ -402,7 +404,33 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _tick(self) -> bool:
         self.refresh()
+        self._check_upgraded_on_disk()
         return True
+
+    def _check_upgraded_on_disk(self) -> None:
+        """An RPM upgrade replaced our files while we run: offer a restart (once)."""
+        if self._restart_offered or self._boot_version is None:
+            return
+        now = updates.installed_version()
+        if now is None or now == self._boot_version:
+            return
+        self._restart_offered = True
+        self.settings.update_row.set_subtitle(f"Version {now} installed — restart Drime to use it")
+        self.settings.update_install_btn.set_visible(False)
+        dlg = Adw.AlertDialog.new(f"Drime Desktop {now} is installed",
+                                  f"This window is still running version {__version__}. "
+                                  "Restart Drime to finish the update.")
+        dlg.add_response("later", "Later")
+        dlg.add_response("restart", "Restart")
+        dlg.set_response_appearance("restart", Adw.ResponseAppearance.SUGGESTED)
+        dlg.set_default_response("restart")
+        dlg.set_close_response("later")
+        dlg.connect("response", lambda _d, r: r == "restart" and self.restart())
+        dlg.present(self)
+
+    def restart(self) -> None:
+        updates.restart_app()
+        self.get_application().quit()
 
     def stop_refreshing(self) -> None:
         if self._tick_id is not None:

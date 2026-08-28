@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -91,6 +92,29 @@ def open_for_install(path: Path) -> None:
     else:
         cmd = ["gio", "open", str(path)]
     subprocess.Popen(cmd, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def installed_version() -> str | None:
+    """Version of the package files currently on disk (None from a git checkout).
+
+    Differs from __version__ once an RPM upgrade has replaced the files under a
+    running app, which keeps executing the old code until it is restarted."""
+    try:
+        text = (Path(__file__).resolve().parent / "__init__.py").read_text()
+    except OSError:
+        return None
+    m = re.search(r'^__version__ = "([^"@]+)"', text, re.M)
+    return m.group(1) if m else None
+
+
+def restart_app() -> None:
+    """Relaunch after this (single-instance) process has exited, then quit is up to the caller."""
+    exe = shutil.which("drime-desktop")
+    cmd = [exe] if exe else [sys.executable, "-c", "import sys; from drime_desktop.cli import main; sys.exit(main())"]
+    waiter = (f"while kill -0 {os.getpid()} 2>/dev/null; do sleep 0.2; done; "
+              + "exec " + " ".join(subprocess.list2cmdline([c]) for c in cmd))
+    subprocess.Popen(["sh", "-c", waiter], start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def _prefs() -> dict:
