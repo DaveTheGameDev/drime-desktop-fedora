@@ -3,19 +3,30 @@
 DrimeWebView wraps a WebKit.WebView with: persistent login (cookies and local
 storage under ~/.local/share/drime-desktop), downloads into ~/Downloads,
 links that ask for a new window opened in the system browser, an offline
-overlay with Retry, and zoom shortcuts.
+overlay with Retry, zoom shortcuts, and drag-and-drop upload of local files.
+
+Drag and drop: WebKitGTK's own GTK4 drop handling does not reliably deliver
+files to the page, so a capture-phase DropTarget on the widget takes file
+drops itself. Each file is exposed to the page through a one-shot
+drime-drop:// URL (a private, CORS-enabled URI scheme), and a small script
+fetches them, builds File objects and dispatches a genuine drop event at the
+drop position, which the Drime web app handles like a browser drop.
 """
 from __future__ import annotations
 
+import json
+import secrets
 from pathlib import Path
 from typing import Callable
+from urllib.parse import quote, urlparse
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("WebKit", "6.0")
-from gi.repository import Adw, GLib, GObject, Gtk, WebKit  # noqa: E402
+gi.require_version("Soup", "3.0")
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Soup, WebKit  # noqa: E402
 
 from . import __version__, backend  # noqa: E402
 
@@ -39,14 +50,79 @@ def open_externally(uri: str, parent: Gtk.Window | None = None) -> None:
     Gtk.UriLauncher.new(uri).launch(parent, None, None)
 
 
+# --- drag-and-drop upload ----------------------------------------------------
+
+DROP_SCHEME = "drime-drop"
+_dropped: dict[str, Path] = {}  # token -> file, consumed by the scheme handler
+_scheme_registered = False
+
+DROP_JS = """
+const files = await Promise.all(JSON.parse(items).map(async i => {
+    const r = await fetch(i.url);
+    if (!r.ok) throw new Error(`fetch ${i.name}: HTTP ${r.status}`);
+    return new File([await r.blob()], i.name, {type: i.type, lastModified: i.mtime});
+}));
+const dt = new DataTransfer();
+files.forEach(f => dt.items.add(f));
+const el = document.elementFromPoint(x, y) || document.body;
+const ev = t => new DragEvent(t, {bubbles: true, cancelable: true, composed: true,
+                                  dataTransfer: dt, clientX: x, clientY: y});
+el.dispatchEvent(ev("dragenter"));
+el.dispatchEvent(ev("dragover"));
+return el.dispatchEvent(ev("drop")) ? "unhandled" : "handled";
+"""
+
+
+def mime_type(path: Path) -> str:
+    ctype, _uncertain = Gio.content_type_guess(path.name, None)
+    return Gio.content_type_get_mime_type(ctype) or "application/octet-stream"
+
+
+def _serve_dropped(request: WebKit.URISchemeRequest, *_args) -> None:
+    """drime-drop://<token>/<name> -> the local file registered for <token>."""
+    path = _dropped.pop(urlparse(request.get_uri()).netloc, None)
+    if path is None:
+        request.finish_error(GLib.Error("Unknown or already served dropped file"))
+        return
+    try:
+        stream = Gio.File.new_for_path(str(path)).read(None)
+        size = path.stat().st_size
+    except (GLib.Error, OSError) as e:
+        request.finish_error(GLib.Error(str(e)))
+        return
+    resp = WebKit.URISchemeResponse.new(stream, size)
+    resp.set_status(200, "OK")
+    resp.set_content_type(mime_type(path))
+    headers = Soup.MessageHeaders.new(Soup.MessageHeadersType.RESPONSE)
+    headers.append("Access-Control-Allow-Origin", "*")
+    resp.set_http_headers(headers)
+    request.finish_with_response(resp)
+
+
+def _register_drop_scheme() -> None:
+    global _scheme_registered
+    if _scheme_registered:
+        return
+    ctx = WebKit.WebContext.get_default()
+    ctx.register_uri_scheme(DROP_SCHEME, _serve_dropped, None)
+    sec = ctx.get_security_manager()
+    sec.register_uri_scheme_as_secure(DROP_SCHEME)
+    sec.register_uri_scheme_as_cors_enabled(DROP_SCHEME)
+    _scheme_registered = True
+
+
 class DrimeWebView(Gtk.Overlay):
-    """WebView + offline overlay. `on_download(path)` is called when a file was saved."""
+    """WebView + offline overlay. `on_download(path)` is called when a file was saved,
+    `on_notice(text)` with short messages for the user (e.g. about dropped folders)."""
 
     def __init__(self, on_download: Callable[[Path], None] | None = None,
-                 on_download_failed: Callable[[str], None] | None = None):
+                 on_download_failed: Callable[[str], None] | None = None,
+                 on_notice: Callable[[str], None] | None = None):
         super().__init__()
         self.on_download = on_download
         self.on_download_failed = on_download_failed
+        self.on_notice = on_notice
+        _register_drop_scheme()
 
         backend.WEB_DATA_DIR.mkdir(parents=True, exist_ok=True)
         backend.WEB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -84,6 +160,11 @@ class DrimeWebView(Gtk.Overlay):
         self.view.bind_property("estimated-load-progress", self.progress, "fraction",
                                 GObject.BindingFlags.SYNC_CREATE)
         self.add_overlay(self.progress)
+
+        drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
+        drop.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)  # before WebKit's own target
+        drop.connect("drop", self._drop_files)
+        self.add_controller(drop)
 
         self._failed = False
         self.load()
@@ -139,6 +220,44 @@ class DrimeWebView(Gtk.Overlay):
     def _create(self, view, navigation_action):
         open_externally(navigation_action.get_request().get_uri(), self.get_root())
         return None
+
+    # --- drag and drop -----------------------------------------------------
+
+    def notice(self, text: str) -> None:
+        if self.on_notice:
+            self.on_notice(text)
+
+    def _drop_files(self, target, value: Gdk.FileList, x: float, y: float) -> bool:
+        paths = [Path(f.get_path()) for f in value.get_files() if f.get_path()]
+        return self.drop_paths(paths, x, y)
+
+    def drop_paths(self, paths: list[Path], x: float, y: float) -> bool:
+        """Hand local files to the web app as a drop at widget coordinates (x, y)."""
+        files = [p for p in paths if p.is_file()]
+        if any(p.is_dir() for p in paths):
+            self.notice(f"Folders can't be dropped here — copy them into {backend.MOUNT} instead.")
+        if not files:
+            return bool(paths)
+        items = []
+        for p in files:
+            token = secrets.token_urlsafe(16)
+            _dropped[token] = p
+            items.append({"url": f"{DROP_SCHEME}://{token}/{quote(p.name)}", "name": p.name,
+                          "type": mime_type(p), "mtime": int(p.stat().st_mtime * 1000)})
+        zoom = self.view.get_zoom_level() or 1.0
+        args = GLib.Variant("a{sv}", {"items": GLib.Variant("s", json.dumps(items)),
+                                      "x": GLib.Variant("d", x / zoom), "y": GLib.Variant("d", y / zoom)})
+        self.view.call_async_javascript_function(DROP_JS, -1, args, None, None, None, self._drop_done, len(files))
+        return True
+
+    def _drop_done(self, view, result, count: int):
+        try:
+            value = view.call_async_javascript_function_finish(result)
+        except GLib.Error as e:
+            self.notice(f"Couldn't hand the dropped files to Drime: {e.message}")
+            return
+        if value.to_string() != "handled":
+            self.notice("Drime didn't accept the drop here — open the folder you want to upload to and try again.")
 
     # --- downloads -------------------------------------------------------
 

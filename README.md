@@ -33,7 +33,7 @@ The token goes straight into `~/.config/rclone/rclone.conf` and nowhere else.
 
 After the first-run wizard, opening **Drime** gives you one window:
 
-- **The web app** fills it: sign in once and you stay signed in (the login is stored under `~/.local/share/drime-desktop`, private to this app). Share links, previews, trash, settings, comments — everything the website does. Files you download land in your Downloads folder (a toast offers to open them); uploads and drag-and-drop work as on the website. Links that would open a new tab open in your normal browser.
+- **The web app** fills it: sign in once and you stay signed in (the login is stored under `~/.local/share/drime-desktop`, private to this app). Share links, previews, trash, settings, comments — everything the website does. Files you download land in your Downloads folder (a toast offers to open them); uploads work as on the website, and you can drag files from Files (Nautilus) onto the window to upload them into the folder you are viewing (folders can't be dropped — copy those into `~/Drime` instead). Links that would open a new tab open in your normal browser.
 - **The status pill** in the title bar — e.g. *Drive mounted · synced 3 min ago* — is green when all is well and turns orange if the drive is down or the last sync failed. Click it to open Settings. If app.drime.cloud can't be reached, the window shows an offline notice with a *Retry* button.
 - **The menu (☰)**: *Open Drime folder*, *Open Sync folder*, *Sync now*, *Open in browser*, *Settings*, *About Drime Desktop*.
 - **Settings** (Ctrl+,): switch the virtual drive and the sync folder on/off, see the sync log, check for updates, remove the setup.

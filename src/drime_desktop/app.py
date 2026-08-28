@@ -313,7 +313,8 @@ class MainWindow(Adw.ApplicationWindow):
         view = Adw.ToolbarView()
         header = Adw.HeaderBar()
         view.add_top_bar(header)
-        self.web = DrimeWebView(on_download=self._downloaded, on_download_failed=self._download_failed)
+        self.web = DrimeWebView(on_download=self._downloaded, on_download_failed=self._download_failed,
+                                on_notice=self.toast)
         view.set_content(self.web)
         self.toasts.set_child(view)
         self.set_content(self.toasts)
