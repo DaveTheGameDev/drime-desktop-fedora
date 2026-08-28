@@ -10,14 +10,14 @@
 |---|---|---|
 | `~/Drime` | Virtual drive: your whole account mounted on demand with local caching (`rclone mount`, VFS full cache), auto-mounted at login, visible in your file manager's sidebar | The virtual "Drime drive" |
 | `~/DrimeSync` | Two-way synced folder mirroring the `Sync` folder of your cloud about every 15 minutes (`rclone bisync` + systemd timer) | Dropbox-style sync folder |
-| **Drime** app | One window: the Drime web app (app.drime.cloud, embedded with WebKitGTK) for sharing, previews and account settings, plus a title-bar status pill and a Settings dialog for the drive, the sync folder, updates and removal — see [The Drime window](#the-drime-window) | The app's UI + tray menu |
+| **Drime** app | One window: the Drime web app (app.drime.cloud, embedded with WebKitGTK) plus status pill and Settings — see [The Drime window](#the-drime-window) | The app's UI + tray menu |
 | `pydrime` (optional) | Third-party CLI for scripted uploads/downloads | — |
 
 ## Requirements
 
 - **Fedora Workstation** (developed on Fedora 44 / GNOME). Other systemd + GTK4 distributions can use the [git checkout](#advanced-install-from-a-git-checkout) path.
 - A Drime account and an **API token**: app.drime.cloud → **Settings → Developer → create token**
-- Everything else (`rclone ≥ 1.73`, `fuse3`, `python3-gobject`, GTK4/libadwaita, WebKitGTK) is a regular Fedora package that GNOME Software/`dnf` pulls in automatically when you install the RPM — nothing to install by hand. Recommended (pulled in by default): `gnome-software` for one-click updates and `python3-rpm` for exact version comparison.
+- Everything else (`rclone ≥ 1.73`, `fuse3`, `python3-gobject`, GTK4/libadwaita, WebKitGTK) is a regular Fedora package pulled in automatically when you install the RPM. Recommended (pulled in by default): `gnome-software` for one-click updates and `python3-rpm` for exact version comparison.
 
 ## Install
 
@@ -44,7 +44,7 @@ The embedded view blocks third-party cookies; if a single-sign-on login fails in
 
 ## Updating
 
-- **Drime Desktop itself**: the app checks GitHub Releases a few seconds after it opens and asks you when a newer version exists (*Download and install*, *Later* or *Skip this version*). You can also check by hand: **Drime → ☰ → Settings → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM to your Downloads folder and opens it in GNOME Software (or your default package handler), where you confirm the update. (Or download the new RPM from Releases and double-click it — same thing.) You can keep Drime open while installing: once the new version is on disk the running window notices within ~10 s and offers to restart.
+- **Drime Desktop itself**: the app checks GitHub Releases a few seconds after it opens and asks you when a newer version exists (*Download and install*, *Later* or *Skip this version*). You can also check by hand: **Drime → ☰ → Settings → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM to your Downloads folder and opens it in GNOME Software (or your default package handler), where you confirm the update. You can keep Drime open while installing: once the new version is on disk the running window notices within ~10 s and offers to restart.
 - **rclone and WebKitGTK** (the web engine) update with your normal system updates.
 
 Updates replace the systemd units under `/usr/lib/systemd/user/`; the running mount is not interrupted, new unit settings apply at the next login (or `systemctl --user daemon-reload && systemctl --user restart rclone-drime-mount`).
@@ -54,8 +54,7 @@ Updates replace the systemd units under `/usr/lib/systemd/user/`; the running mo
 - Work in `~/Drime` for anything in your account — saves upload automatically (files are cached locally up to 10 GB, so recently used files open instantly).
 - Drop things in `~/DrimeSync` for an always-mirrored offline copy of the cloud's `Sync` folder.
 - **Do not delete `~/DrimeSync/RCLONE_TEST`** — it's a safety marker; sync aborts rather than mass-deleting if either side ever looks wrong.
-- The **Drime** window's status pill shows whether the drive is mounted and when the last sync ran; *Sync now* is in the menu; the *Sync log* row in Settings shows the journal.
-- Use the web app in the same window for anything the file manager can't do (share links, trash, account settings).
+- For sharing, trash, account settings and to check on the drive and sync, open the **Drime** window (see [above](#the-drime-window)).
 
 Terminal equivalents:
 
@@ -77,7 +76,7 @@ What is **kept**: `~/DrimeSync` and everything in your cloud account — always;
 ## Caveats
 
 - **Drime's API stores no modification times or hashes**, so the sync folder detects changes by file size only. An edit that keeps a file's exact byte size won't be picked up by `~/DrimeSync`. This is rare, but for important work prefer `~/Drime` — the mount always uploads what you save.
-- Tune cache size/behavior with `systemctl --user edit rclone-drime-mount` (override `ExecStart`, e.g. `--vfs-cache-max-size`, `--dir-cache-time`; the packaged unit in `/usr/lib/systemd/user/` is replaced on updates, so don't edit it directly). Changes made in the cloud can take up to a minute to appear in `~/Drime`.
+- Tune cache size/behavior with `systemctl --user edit rclone-drime-mount` (override `ExecStart`, e.g. `--vfs-cache-max-size`, `--dir-cache-time`; overrides survive updates, edits to the packaged unit don't). Changes made in the cloud can take up to a minute to appear in `~/Drime`.
 - Drime's own desktop apps are beta; the rclone backend is young too. Keep backups of anything irreplaceable.
 - The GNOME Files **sidebar** bookmark keeps the generic folder glyph: Nautilus hardcodes bookmark icons, so only the folder in the main view and the app launchers show the Drime logo.
 - The Drime logo (`assets/drime.png`) belongs to Drime and is used only to identify the service; it is not covered by this project's MIT license.
@@ -108,7 +107,7 @@ In this mode the systemd units are copied to `~/.config/systemd/user/`. If you l
 5. `rclone bisync ~/DrimeSync drime:Sync --size-only --create-empty-src-dirs --check-access --resync` (the timer runs the same command with `--resilient --recover` instead of `--resync`)
 6. `systemctl --user enable --now drime-bisync.timer`
 
-The launcher (`io.github.davethegamedev.DrimeDesktop.desktop`) and the icon are installed system-wide by the package. The web app is rendered by WebKitGTK (`webkitgtk6.0`, the same engine as GNOME Web) inside the app's own window; its cookies and cache live in `~/.local/share/drime-desktop` and `~/.cache/drime-desktop`.
+The launcher (`io.github.davethegamedev.DrimeDesktop.desktop`) and the icon are installed system-wide by the package. The web app's cache lives in `~/.cache/drime-desktop`.
 </details>
 
 ## Building the RPM
