@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.3.7
+Version:        0.3.8
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -67,6 +67,14 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Sat Aug 29 2026 DaveTheGameDev - 0.3.8-1
+- Really fix dragging files and folders inside the Drime window: WebKitGTK
+  never delivers the page's own drops, so the app now drives the drag itself
+  (the item no longer stays grayed out and dragging keeps working)
+- Refresh the folder listing when the window regains focus and about every
+  minute, so changes made in a browser, on your phone or through ~/Drime show
+  up without reloading
+
 * Sat Aug 29 2026 DaveTheGameDev - 0.3.7-1
 - Fix dragging files and folders inside the Drime window (e.g. moving a file
   into a folder): the drop-to-upload feature no longer intercepts the web app's

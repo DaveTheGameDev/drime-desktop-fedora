@@ -173,11 +173,118 @@ SESSION_JS = """
 """ % {"handler": SESSION_HANDLER}
 
 
+# --- in-page drag and drop -------------------------------------------------------
+#
+# WebKitGTK fires "dragstart" when an item in the page is dragged, but the native
+# GTK drag that follows never delivers a drop or a dragend back to the page, so
+# moving a file into a folder inside the Drime window hangs with the item grayed
+# out.  Drime keeps the dragged item in its own state and only needs the
+# dragover / dragenter / dragleave / drop / dragend events, so we cancel the
+# native drag and dispatch those events from the mouse ourselves.
+
+DND_JS = """
+(() => {
+    let src = null, dt = null, over = null, ev = null;
+    const props = e => ({bubbles: true, cancelable: true, composed: true, dataTransfer: dt,
+                         clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY,
+                         buttons: 1, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey});
+    const fire = (type, target, e) => target && target.dispatchEvent(new DragEvent(type, props(e)));
+    const under = e => document.elementFromPoint(e.clientX, e.clientY);
+
+    window.addEventListener("dragstart", e => {
+        if (e.defaultPrevented || src || !(e.target instanceof Element)) return;
+        e.preventDefault();  // no native drag: we drive the rest from mouse events
+        src = e.target;
+        ev = e;
+        dt = new DataTransfer();
+        dt.effectAllowed = e.dataTransfer.effectAllowed || "all";
+        over = null;
+    });
+
+    function move(e) {
+        if (!src) return;
+        ev = e;
+        e.stopImmediatePropagation();
+        const el = under(e);
+        if (el !== over) {
+            fire("dragleave", over, e);
+            over = el;
+            fire("dragenter", over, e);
+        }
+        if (over) fire("dragover", over, e);
+    }
+    function finish(e, drop) {
+        if (!src) return;
+        const s = src, target = over, last = ev;
+        src = null;
+        if (target && drop) fire("drop", target, e);
+        else if (target) fire("dragleave", target, e);
+        fire("dragend", s, last || e);
+        dt = null;
+        over = null;
+    }
+    window.addEventListener("mousemove", move, true);
+    window.addEventListener("mouseup", e => {
+        if (!src) return;
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        // the drop landed: swallow the click WebKit synthesizes for this mouseup
+        const until = Date.now() + 300;
+        window.addEventListener("click", c => {
+            if (Date.now() < until) { c.stopImmediatePropagation(); c.preventDefault(); }
+        }, {capture: true, once: true});
+        finish(e, true);
+    }, true);
+    window.addEventListener("keydown", e => { if (src && e.key === "Escape") finish(e, false); }, true);
+    window.addEventListener("blur", e => { if (src) finish(ev || e, false); });
+})();
+"""
+
+# --- keep the listing fresh ------------------------------------------------------
+#
+# Drime caches folder listings for five minutes and only refetches them when the
+# page regains focus and they are older than that, so a change made elsewhere
+# (browser, phone, the rclone mount) can stay invisible in a window that is
+# kept open next to it.  We find the page's react-query client through the React
+# tree and refresh the drive queries when the window regains focus and, while
+# it is visible, every minute.
+
+FRESH_JS = """
+(() => {
+    const KEYS = ["drive-entries", "user-folders", "folder-path"];
+    const EVERY_MS = 60 * 1000, FOCUS_MS = 10 * 1000;
+    let client = null, last = Date.now();
+
+    function findClient() {
+        const root = document.getElementById("root");
+        if (!root) return null;
+        const key = Object.keys(root).find(k => k.startsWith("__reactContainer$"));
+        let fiber = key && root[key];
+        for (let i = 0; fiber && i < 200; i++, fiber = fiber.child) {
+            const c = fiber.memoizedProps && fiber.memoizedProps.client;
+            if (c && typeof c.invalidateQueries === "function") return c;
+        }
+        return null;
+    }
+    function refresh() {
+        last = Date.now();
+        try {
+            client = client || findClient();
+            if (client) for (const k of KEYS) client.invalidateQueries({queryKey: [k]});
+        } catch (e) {}
+    }
+    setInterval(() => { if (!document.hidden && Date.now() - last > EVERY_MS - 500) refresh(); }, 15 * 1000);
+    window.addEventListener("focus", () => { if (Date.now() - last > FOCUS_MS) refresh(); });
+})();
+"""
+
+
 def _session_keeper() -> WebKit.UserContentManager:
     ucm = WebKit.UserContentManager()
     ucm.register_script_message_handler(SESSION_HANDLER, None)
-    ucm.add_script(WebKit.UserScript.new(SESSION_JS, WebKit.UserContentInjectedFrames.TOP_FRAME,
-                                         WebKit.UserScriptInjectionTime.START, [backend.WEB_URL + "/*"], None))
+    for js in (SESSION_JS, DND_JS, FRESH_JS):
+        ucm.add_script(WebKit.UserScript.new(js, WebKit.UserContentInjectedFrames.TOP_FRAME,
+                                             WebKit.UserScriptInjectionTime.START, [backend.WEB_URL + "/*"], None))
     return ucm
 
 
