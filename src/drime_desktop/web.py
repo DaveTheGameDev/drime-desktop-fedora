@@ -246,7 +246,9 @@ DND_JS = """
 # page regains focus and they are older than that, so a change made elsewhere
 # (browser, phone, the rclone mount) can stay invisible in a window that is
 # kept open next to it.  We find the page's react-query client through the React
-# tree and refresh the drive queries when the window regains focus and, while
+# tree and refresh the drive queries after every write the page makes (Drime
+# only patches its cache, and misses e.g. an item moved back to the root
+# folder, which then stays hidden), when the window regains focus and, while
 # it is visible, every minute.
 
 FRESH_JS = """
@@ -275,6 +277,22 @@ FRESH_JS = """
     }
     setInterval(() => { if (!document.hidden && Date.now() - last > EVERY_MS - 500) refresh(); }, 15 * 1000);
     window.addEventListener("focus", () => { if (Date.now() - last > FOCUS_MS) refresh(); });
+
+    // after a successful write to the drive API, refetch as soon as the page settles
+    const WRITES = /^(file-entries|folders|drive|uploads|s3|trash)($|[/?])/;
+    let soon = null;
+    const open = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+        if (!/^get$/i.test(method) && WRITES.test(String(url).split("api/v1/")[1] || "")) {
+            this.addEventListener("loadend", () => {
+                if (this.status >= 200 && this.status < 300) {
+                    clearTimeout(soon);
+                    soon = setTimeout(refresh, 300);
+                }
+            });
+        }
+        return open.call(this, method, url, ...rest);
+    };
 })();
 """
 

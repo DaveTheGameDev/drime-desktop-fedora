@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.3.8
+Version:        0.3.9
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -67,6 +67,11 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Sat Aug 29 2026 DaveTheGameDev - 0.3.9-1
+- Refresh the folder listing right after a move, undo, rename, delete or
+  upload completes, instead of up to a minute later (Drime's web app misses
+  the cache update for items moved back to the top folder)
+
 * Sat Aug 29 2026 DaveTheGameDev - 0.3.8-1
 - Really fix dragging files and folders inside the Drime window: WebKitGTK
   never delivers the page's own drops, so the app now drives the drag itself
