@@ -185,7 +185,7 @@ def ensure_units(log: LogCb = _noop) -> None:
 
 # --- Virtual drive -----------------------------------------------------------
 
-def is_mounted() -> bool:
+def _in_proc_mounts() -> bool:
     try:
         with open("/proc/mounts") as f:
             target = str(MOUNT).replace(" ", "\\040")
@@ -194,8 +194,33 @@ def is_mounted() -> bool:
         return False
 
 
+def is_stale_mount() -> bool:
+    """The mountpoint is still listed but rclone is gone: every access fails with
+    'Transport endpoint is not connected' until it is lazily unmounted."""
+    if not _in_proc_mounts():
+        return False
+    try:
+        os.stat(MOUNT)
+        return False
+    except OSError:
+        return True
+
+
+def is_mounted() -> bool:
+    """Mounted *and* answering (a stale mountpoint left by a crashed rclone doesn't count)."""
+    return _in_proc_mounts() and not is_stale_mount()
+
+
+def unmount(lazy: bool = True) -> None:
+    if _in_proc_mounts():
+        run(["fusermount3", "-uz" if lazy else "-u", str(MOUNT)])
+
+
 def mount_enable(log: LogCb = _noop) -> None:
     ensure_units(log)
+    if is_stale_mount():
+        unmount()
+        systemctl("reset-failed", MOUNT_UNIT)
     cp = systemctl("enable", "--now", MOUNT_UNIT)
     if cp.returncode != 0:
         raise RuntimeError(cp.stderr.strip() or "Could not start the mount service")
@@ -204,8 +229,7 @@ def mount_enable(log: LogCb = _noop) -> None:
 
 def mount_disable(log: LogCb = _noop) -> None:
     systemctl("disable", "--now", MOUNT_UNIT)
-    if is_mounted():
-        run(["fusermount3", "-u", str(MOUNT)])
+    unmount()
     log("Virtual drive disabled")
 
 
@@ -412,8 +436,7 @@ def uninstall_all(purge_config: bool = False, log: LogCb = _noop) -> None:
     systemctl("disable", "--now", SYNC_TIMER)
     systemctl("stop", SYNC_SERVICE)
     systemctl("disable", "--now", MOUNT_UNIT)
-    if is_mounted():
-        run(["fusermount3", "-u", str(MOUNT)])
+    unmount()
     for u in UNITS:
         (USER_UNIT_DIR / u).unlink(missing_ok=True)
     systemctl("daemon-reload")

@@ -5,13 +5,16 @@ Wants=network-online.target
 
 [Service]
 Type=notify
+# if rclone died, the mountpoint is left stale ('Transport endpoint is not connected')
+# and nothing can start on it until it is lazily unmounted
+ExecStartPre=-/usr/bin/fusermount3 -uz %h/Drime
 ExecStartPre=/usr/bin/mkdir -p %h/Drime
 ExecStart=/usr/bin/rclone mount drime: %h/Drime \
     --vfs-cache-mode full \
     --vfs-cache-max-size 10G \
     --dir-cache-time 1m \
     --umask 022
-ExecStop=/usr/bin/fusermount3 -u %h/Drime
+ExecStop=/usr/bin/fusermount3 -uz %h/Drime
 Restart=on-failure
 RestartSec=10
 

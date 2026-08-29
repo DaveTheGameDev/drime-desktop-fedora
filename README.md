@@ -76,6 +76,7 @@ What is **kept**: `~/DrimeSync` and everything in your cloud account — always;
 ## Caveats
 
 - **Drime's API stores no modification times or hashes**, so the sync folder detects changes by file size only. An edit that keeps a file's exact byte size won't be picked up by `~/DrimeSync`. This is rare, but for important work prefer `~/Drime` — the mount always uploads what you save.
+- If rclone ever crashes, the drive comes back on its own within about 10 seconds (the status pill shows *Drive not mounted* in the meantime). Files saved just before the crash are kept in the local cache and uploaded once it is back.
 - Tune cache size/behavior with `systemctl --user edit rclone-drime-mount` (override `ExecStart`, e.g. `--vfs-cache-max-size`, `--dir-cache-time`; overrides survive updates, edits to the packaged unit don't). Changes made in the cloud can take up to a minute to appear in `~/Drime`.
 - Drime's own desktop apps are beta; the rclone backend is young too. Keep backups of anything irreplaceable.
 - The GNOME Files **sidebar** bookmark keeps the generic folder glyph: Nautilus hardcodes bookmark icons, so only the folder in the main view and the app launchers show the Drime logo.

@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.3.9
+Version:        0.3.10
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -67,6 +67,16 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Sat Aug 29 2026 DaveTheGameDev - 0.3.10-1
+- The virtual drive now recovers by itself if rclone crashes: the mount unit
+  clears the stale "Transport endpoint is not connected" mountpoint before
+  starting (previously every restart failed and ~/Drime stayed broken until a
+  manual fusermount3 -uz)
+- The status pill and --status report such a stale drive as "not mounted"
+  instead of green "mounted"
+- Turning the drive off or removing the setup uses a lazy unmount, so it
+  works while files are open
+
 * Sat Aug 29 2026 DaveTheGameDev - 0.3.9-1
 - Refresh the folder listing right after a move, undo, rename, delete or
   upload completes, instead of up to a minute later (Drime's web app misses
