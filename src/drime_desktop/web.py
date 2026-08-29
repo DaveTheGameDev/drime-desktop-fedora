@@ -3,7 +3,18 @@
 DrimeWebView wraps a WebKit.WebView with: persistent login (cookies and local
 storage under ~/.local/share/drime-desktop), downloads into ~/Downloads,
 links that ask for a new window opened in the system browser, an offline
-overlay with Retry, zoom shortcuts, and drag-and-drop upload of local files.
+overlay with Retry, zoom shortcuts, drag-and-drop upload of local files, and a
+session keeper that stops "CSRF token mismatch" errors in a long-lived window.
+
+Session keeper: Drime's front end sends the CSRF token it received when the
+page was loaded (X-CSRF-TOKEN from bootstrapData) with every write request,
+while the server session and its token expire after two idle hours. A browser
+tab rarely lives that long; a desktop window does, and then every create,
+rename or delete fails until the page is reloaded. A user script renews the
+token through GET /api/v1/bootstrap-data (which also keeps the session alive)
+every 15 minutes and when the window regains focus after a gap, and rewrites
+the token header on outgoing requests. Should a request still get a 419, the
+token is renewed at once and the user is asked to retry.
 
 Drag and drop: WebKitGTK's own GTK4 drop handling does not reliably deliver
 files to the page, so a capture-phase DropTarget on the widget takes file
@@ -111,6 +122,64 @@ def _register_drop_scheme() -> None:
     _scheme_registered = True
 
 
+# --- session keeper ------------------------------------------------------------
+
+SESSION_HANDLER = "drimeSession"
+
+SESSION_JS = """
+(() => {
+    const REFRESH_MS = 15 * 60 * 1000, FOCUS_MS = 5 * 60 * 1000;
+    let token = null, last = Date.now(), pending = null;
+    const tell = msg => { try { window.webkit.messageHandlers.%(handler)s.postMessage(msg); } catch (e) {} };
+
+    const setHeader = XMLHttpRequest.prototype.setRequestHeader;
+    XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+        if (token && /^x-csrf-token$/i.test(name)) value = token;
+        return setHeader.call(this, name, value);
+    };
+    const send = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (...args) {
+        this.addEventListener("loadend", () => {
+            if (this.status === 419) refresh().then(ok => tell(ok ? "expired" : "expired-unrecoverable"));
+        });
+        return send.apply(this, args);
+    };
+
+    function refresh() {
+        if (pending) return pending;
+        pending = (async () => {
+            try {
+                const r = await fetch("/api/v1/bootstrap-data", {credentials: "include", cache: "no-store",
+                                                                 headers: {Accept: "application/json"}});
+                if (!r.ok) return false;
+                const data = (await r.json()).data;
+                const t = (typeof data === "string" ? JSON.parse(atob(data)) : data).csrf_token;
+                if (typeof t !== "string" || !t) return false;
+                token = t;
+                last = Date.now();
+                return true;
+            } catch (e) {
+                return false;
+            } finally {
+                pending = null;
+            }
+        })();
+        return pending;
+    }
+    setInterval(() => { if (Date.now() - last > REFRESH_MS) refresh(); }, 60 * 1000);
+    window.addEventListener("focus", () => { if (Date.now() - last > FOCUS_MS) refresh(); });
+})();
+""" % {"handler": SESSION_HANDLER}
+
+
+def _session_keeper() -> WebKit.UserContentManager:
+    ucm = WebKit.UserContentManager()
+    ucm.register_script_message_handler(SESSION_HANDLER, None)
+    ucm.add_script(WebKit.UserScript.new(SESSION_JS, WebKit.UserContentInjectedFrames.TOP_FRAME,
+                                         WebKit.UserScriptInjectionTime.START, [backend.WEB_URL + "/*"], None))
+    return ucm
+
+
 class DrimeWebView(Gtk.Overlay):
     """WebView + offline overlay. `on_download(path)` is called when a file was saved,
     `on_notice(text)` with short messages for the user (e.g. about dropped folders)."""
@@ -133,7 +202,10 @@ class DrimeWebView(Gtk.Overlay):
         cookies.set_accept_policy(WebKit.CookieAcceptPolicy.NO_THIRD_PARTY)
         self.session.connect("download-started", self._download_started)
 
-        self.view = WebKit.WebView(network_session=self.session, hexpand=True, vexpand=True)
+        self.ucm = _session_keeper()
+        self.ucm.connect(f"script-message-received::{SESSION_HANDLER}", self._session_message)
+        self.view = WebKit.WebView(network_session=self.session, user_content_manager=self.ucm,
+                                   hexpand=True, vexpand=True)
         settings = self.view.get_settings()
         settings.set_enable_developer_extras(True)
         settings.set_enable_webgl(True)
@@ -258,6 +330,15 @@ class DrimeWebView(Gtk.Overlay):
             return
         if value.to_string() != "handled":
             self.notice("Drime didn't accept the drop here — open the folder you want to upload to and try again.")
+
+    # --- session keeper ----------------------------------------------------
+
+    def _session_message(self, manager, value):
+        msg = value.to_string()
+        if msg == "expired":
+            self.notice("Your Drime session had expired and was renewed — please try that again.")
+        elif msg == "expired-unrecoverable":
+            self.notice("Your Drime session has expired — reload the page (Ctrl+R) and sign in again if asked.")
 
     # --- downloads -------------------------------------------------------
 

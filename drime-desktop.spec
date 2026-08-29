@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.3.5
+Version:        0.3.6
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -67,6 +67,11 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Sat Aug 29 2026 DaveTheGameDev - 0.3.6-1
+- Keep the Drime session alive and renew its CSRF token, so creating, renaming
+  or deleting things no longer fails with "CSRF token mismatch" after the window
+  has been idle for a couple of hours
+
 * Fri Aug 28 2026 DaveTheGameDev - 0.3.5-1
 - Drag and drop files from the file manager onto the Drime window to upload
   them (WebKitGTK's own drop handling did not deliver files to the web app).
