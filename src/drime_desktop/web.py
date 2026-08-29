@@ -18,7 +18,8 @@ token is renewed at once and the user is asked to retry.
 
 Drag and drop: WebKitGTK's own GTK4 drop handling does not reliably deliver
 files to the page, so a capture-phase DropTarget on the widget takes file
-drops itself. Each file is exposed to the page through a one-shot
+drops itself (only drags from other applications: the page's own drags, e.g.
+moving a file into a folder, must reach WebKit). Each file is exposed to the page through a one-shot
 drime-drop:// URL (a private, CORS-enabled URI scheme), and a small script
 fetches them, builds File objects and dispatches a genuine drop event at the
 drop position, which the Drime web app handles like a browser drop.
@@ -235,6 +236,7 @@ class DrimeWebView(Gtk.Overlay):
 
         drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)  # before WebKit's own target
+        drop.connect("accept", self._accept_drop)
         drop.connect("drop", self._drop_files)
         self.add_controller(drop)
 
@@ -298,6 +300,13 @@ class DrimeWebView(Gtk.Overlay):
     def notice(self, text: str) -> None:
         if self.on_notice:
             self.on_notice(text)
+
+    @staticmethod
+    def _accept_drop(target, drop: Gdk.Drop) -> bool:
+        """Only take drags from other apps (file managers). Drags started inside this
+        process are the web app moving its own files between folders: those must reach
+        WebKit untouched, or the page never sees the drop/dragend and gets stuck."""
+        return drop.get_drag() is None and drop.get_formats().union_deserialize_gtypes().contain_gtype(Gdk.FileList)
 
     def _drop_files(self, target, value: Gdk.FileList, x: float, y: float) -> bool:
         paths = [Path(f.get_path()) for f in value.get_files() if f.get_path()]
