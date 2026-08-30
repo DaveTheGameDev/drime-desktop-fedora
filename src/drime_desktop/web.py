@@ -16,6 +16,16 @@ every 15 minutes and when the window regains focus after a gap, and rewrites
 the token header on outgoing requests. Should a request still get a 419, the
 token is renewed at once and the user is asked to retry.
 
+Waking from sleep: WebKit's network process keeps one HTTP/2 connection to
+Drime and multiplexes every request onto it. After a suspend that connection
+is dead (the router has forgotten it, so nothing answers, not even a reset)
+while the kernel keeps retransmitting on it for a quarter of an hour, and every
+request — the page's, the in-page recovery's, even a reload — queues up behind
+it: the window looks frozen. WebKitGTK has no API to close pooled connections,
+so on wake (logind's PrepareForSleep, with the page's own clock-jump detection
+as a fallback) we terminate the network process; WebKit starts a fresh one on
+the next request, and the page is told to refetch on the new connections.
+
 Drag and drop: WebKitGTK's own GTK4 drop handling does not reliably deliver
 files to the page, so a capture-phase DropTarget on the widget takes file
 drops itself (only drags from other applications: the page's own drags, e.g.
@@ -28,6 +38,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import time
 from pathlib import Path
 from typing import Callable
 from urllib.parse import quote, urlparse
@@ -121,6 +132,28 @@ def _register_drop_scheme() -> None:
     sec.register_uri_scheme_as_secure(DROP_SCHEME)
     sec.register_uri_scheme_as_cors_enabled(DROP_SCHEME)
     _scheme_registered = True
+
+
+# --- network process -----------------------------------------------------------
+
+def drop_connections() -> bool:
+    """Close every pooled connection by terminating WebKit's network process; WebKit
+    spawns a new one for the next request (cookies and the cache are on disk).
+    Returns whether there was one to terminate."""
+    return backend.kill_children("WebKitNetworkProcess")
+
+
+def on_wake(callback: Callable[[], None]) -> int | None:
+    """Call callback() on the main loop when the system returns from sleep
+    (logind's PrepareForSleep(false)). Returns the subscription id, or None when
+    there is no system bus / logind."""
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+    except GLib.Error:
+        return None
+    return bus.signal_subscribe("org.freedesktop.login1", "org.freedesktop.login1.Manager", "PrepareForSleep",
+                                "/org/freedesktop/login1", None, Gio.DBusSignalFlags.NONE,
+                                lambda *a: (not a[5].unpack()[0]) and callback())
 
 
 # --- session keeper ------------------------------------------------------------
@@ -260,7 +293,10 @@ DND_JS = """
 # abort every request in flight, cancel react-query's pending fetches and
 # refetch on new connections.  API requests also get a timeout so one that
 # does get stuck fails fast and react-query retries it.  If the page is still
-# stuck a while after that, the Python side reloads it.
+# stuck a while after that, the Python side reloads it.  The aborting alone is
+# not enough, though: the requests are refetched on the same dead HTTP/2
+# connection, so the Python side first replaces the network process (see the
+# module docstring) and only then asks the page to resume.
 
 FRESH_JS = """
 (() => {
@@ -300,9 +336,10 @@ FRESH_JS = """
         this.addEventListener("loadend", () => inflight.delete(this));
         return send.apply(this, args);
     };
-    let recovering = null;
+    let recovering = null, resumed = 0;
     function resume(why) {
         if (recovering) return;
+        resumed = Date.now();
         for (const xhr of [...inflight.keys()]) { try { xhr.abort(); } catch (e) {} }
         inflight.clear();
         try {
@@ -322,7 +359,8 @@ FRESH_JS = """
     }
     setInterval(() => {
         const now = Date.now();
-        if (now - tick > TICK_MS + SLEPT_MS) resume("slept");
+        // a big gap = the computer slept: Python drops the dead connections, then calls resume()
+        if (now - tick > TICK_MS + SLEPT_MS && now - resumed > SLEPT_MS) tell("slept");
         tick = now;
     }, TICK_MS);
     window.addEventListener("online", () => resume("online"));
@@ -418,6 +456,9 @@ class DrimeWebView(Gtk.Overlay):
         self.add_controller(drop)
 
         self._failed = False
+        self._offline = not Gio.NetworkMonitor.get_default().get_network_available()
+        self._recovered = 0.0
+        on_wake(lambda: self.recover("wake"))
         self.load()
 
     # --- navigation ------------------------------------------------------
@@ -525,16 +566,44 @@ class DrimeWebView(Gtk.Overlay):
             self.notice("Your Drime session had expired and was renewed — please try that again.")
         elif msg == "expired-unrecoverable":
             self.notice("Your Drime session has expired — reload the page (Ctrl+R) and sign in again if asked.")
+        elif msg == "slept":
+            self.recover("slept")
         elif msg == "stuck":
-            # still hanging after the in-page recovery (see FRESH_JS): start over
-            self.reload()
+            # still hanging after the in-page recovery (see FRESH_JS): start over on new connections
+            self.recover("stuck", reload=True, force=True)
 
     def _network_changed(self, monitor, available: bool) -> None:
-        if available and self.view.get_uri() and not self._failed:
-            self.view.evaluate_javascript("window.__drimeResume && window.__drimeResume('network')",
-                                          -1, None, None, None, None, None)
-        elif available and self._failed:
+        was_offline, self._offline = self._offline, not available
+        if not available or not self.view.get_uri():
+            return
+        if was_offline:
+            self.recover("network")  # the old connections did not survive the outage
+        elif not self._failed:
+            self._resume_page("network")
+        else:
             self.reload()
+
+    # --- recovery after sleep / network loss ---------------------------------
+
+    def recover(self, why: str, reload: bool = False, force: bool = False) -> None:
+        """Replace the network process (dropping its dead pooled connections) and
+        make the page refetch on the new ones, or reload it if it is mid-load or
+        showing the offline page. Recoveries within a minute of each other are
+        collapsed unless force is set: the wake signal, the page's own sleep
+        detection and the network coming back all fire for one wake-up."""
+        now = time.monotonic()
+        if not force and now - self._recovered < 60:
+            return
+        self._recovered = now
+        drop_connections()
+        if reload or self._failed or self.view.is_loading() or not self.view.get_uri():
+            self.reload()
+        else:
+            self._resume_page(why)
+
+    def _resume_page(self, why: str) -> None:
+        self.view.evaluate_javascript(f"window.__drimeResume && window.__drimeResume({json.dumps(why)})",
+                                      -1, None, None, None, None, None)
 
     # --- downloads -------------------------------------------------------
 

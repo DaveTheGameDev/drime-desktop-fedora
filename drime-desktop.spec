@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.4.0
+Version:        0.4.1
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -67,6 +67,17 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Sun Aug 30 2026 DaveTheGameDev - 0.4.1-1
+- The window no longer freezes for a quarter of an hour after the computer
+  wakes from sleep. WebKit funnels every request through one connection to
+  Drime that is dead after a suspend, and the previous recovery retried on
+  that same connection; the app now drops the connections when the system
+  wakes (and when the page notices a sleep, or the network comes back after
+  an outage) and refetches on fresh ones
+- The virtual drive keeps its directory listing warm for an hour instead of a
+  minute, so file dialogs (which walk ~/Drime through the sidebar bookmarks)
+  no longer stall for a few seconds after a moment of inactivity
+
 * Sun Aug 30 2026 DaveTheGameDev - 0.4.0-1
 - New Ubuntu/Debian package (drime-desktop_<version>_all.deb) for Ubuntu 24.04+
   and Debian 13+. It needs rclone 1.73 or newer from rclone.org, because the

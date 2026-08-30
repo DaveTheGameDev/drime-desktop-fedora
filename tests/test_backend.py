@@ -82,3 +82,36 @@ def test_preflight_old_rclone(broken_system, fake_distro, monkeypatch):
     assert "rclone.org" in msg
     fake_distro("fedora")
     assert "(sudo dnf upgrade rclone)" in backend.preflight()[0]
+
+
+def _fake_proc(tmp_path, procs):
+    """procs: {pid: (comm, ppid)} -> a /proc look-alike with stat files."""
+    for pid, (comm, ppid) in procs.items():
+        d = tmp_path / str(pid)
+        d.mkdir()
+        (d / "stat").write_text(f"{pid} ({comm}) S {ppid} {pid} {pid} 0 -1 4194560 0\n")
+    (tmp_path / "self").mkdir()
+    (tmp_path / "meminfo").write_text("MemTotal: 1 kB\n")
+    return tmp_path
+
+
+def test_child_pids_matches_truncated_comm_of_direct_children(tmp_path):
+    proc = _fake_proc(tmp_path, {
+        100: ("drime-desktop", 1),
+        101: ("WebKitNetworkPr", 100),   # /proc truncates the name to 15 chars
+        102: ("bwrap", 100),
+        103: ("WebKitWebProces", 102),   # grandchild through the sandbox
+        104: ("WebKitNetworkPr", 999),   # another app's
+        105: ("WebKit (odd) Pr", 100),   # parentheses in the name must not confuse the parser
+    })
+    assert backend.child_pids("WebKitNetworkProcess", proc, parent=100) == [101]
+    assert backend.child_pids("WebKitWebProcess", proc, parent=100) == []
+    assert backend.child_pids("WebKitWebProcess", proc, parent=102) == [103]
+
+
+def test_child_pids_skips_unreadable_entries(tmp_path):
+    proc = _fake_proc(tmp_path, {100: ("WebKitNetworkPr", 7)})
+    (tmp_path / "200").mkdir()                      # vanished before its stat was read
+    (tmp_path / "300").mkdir()
+    (tmp_path / "300" / "stat").write_text("garbage")
+    assert backend.child_pids("WebKitNetworkProcess", proc, parent=7) == [100]

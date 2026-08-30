@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,36 @@ LogCb = Callable[[str], None]
 
 def _noop(_line: str) -> None:
     pass
+
+
+def child_pids(comm: str, proc: Path = Path("/proc"), parent: int | None = None) -> list[int]:
+    """PIDs of our direct children whose command name is `comm` (/proc truncates
+    the name to 15 characters, so a prefix match is used)."""
+    parent = os.getpid() if parent is None else parent
+    pids = []
+    for entry in proc.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            stat = (entry / "stat").read_text()
+            name = stat[stat.index("(") + 1:stat.rindex(")")]
+            ppid = int(stat[stat.rindex(")") + 2:].split()[1])
+        except (OSError, ValueError):
+            continue
+        if ppid == parent and comm.startswith(name):
+            pids.append(int(entry.name))
+    return sorted(pids)
+
+
+def kill_children(comm: str) -> bool:
+    """SIGKILL our direct children named `comm`; returns whether there were any."""
+    pids = child_pids(comm)
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    return bool(pids)
 
 
 def run(cmd: list[str], check: bool = False, **kw) -> subprocess.CompletedProcess:
