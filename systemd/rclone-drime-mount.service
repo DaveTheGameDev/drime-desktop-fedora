@@ -9,10 +9,16 @@ Type=notify
 # and nothing can start on it until it is lazily unmounted
 ExecStartPre=-/usr/bin/fusermount3 -uz %h/Drime
 ExecStartPre=/usr/bin/mkdir -p %h/Drime
+# --dir-cache-time: Drime has no change notifications, so rclone re-lists a
+# directory from the cloud once this expires. A cold listing takes ~3 s, and
+# anything that touches ~/Drime synchronously (the GNOME file chooser walks its
+# sidebar bookmarks, so every app's "open file" dialog) freezes for that long
+# after a minute of inactivity. One hour keeps the tree warm; local writes show
+# up immediately regardless.
 ExecStart=/usr/bin/rclone mount drime: %h/Drime \
     --vfs-cache-mode full \
     --vfs-cache-max-size 10G \
-    --dir-cache-time 1m \
+    --dir-cache-time 1h \
     --umask 022
 ExecStop=/usr/bin/fusermount3 -uz %h/Drime
 Restart=on-failure
