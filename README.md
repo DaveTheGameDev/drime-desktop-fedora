@@ -164,9 +164,13 @@ install.sh / uninstall.sh   # thin wrappers for git-checkout installs
 .github/workflows/          # release build (RPM + DEB)
 ```
 
-## Contributing
+## Support and contributing
 
-Issues and pull requests are welcome. Bug reports are most useful with the output of `drime-desktop --status`, `journalctl --user -u rclone-drime-mount -u drime-bisync -n 50`, and your distribution and version. Licensed under the [MIT License](LICENSE).
+- **Questions and help**: [Q&A Discussions](https://github.com/DaveTheGameDev/drime-desktop-linux/discussions/categories/q-a)
+- **Ideas**: [Ideas Discussions](https://github.com/DaveTheGameDev/drime-desktop-linux/discussions/categories/ideas)
+- **Bugs**: [open an issue](https://github.com/DaveTheGameDev/drime-desktop-linux/issues/new/choose)
+
+Pull requests are welcome. Bug reports are most useful with the output of `drime-desktop --status`, `journalctl --user -u rclone-drime-mount -u drime-bisync -n 50`, and your distribution and version. Licensed under the [MIT License](LICENSE).
 
 ---
 

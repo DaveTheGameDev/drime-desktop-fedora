@@ -1,0 +1,46 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug]
+body:
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and version
+      placeholder: e.g. Fedora 44, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Drime Desktop version
+      description: From Settings, or `rpm -q drime-desktop` / `dpkg -s drime-desktop`
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How was it installed?
+      options: [RPM, DEB, git checkout]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of `drime-desktop --status`
+      render: shell
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output of `journalctl --user -u rclone-drime-mount -u drime-bisync -n 50`
+      description: Remove anything private (paths, file names) before pasting.
+      render: shell
