@@ -247,15 +247,29 @@ class SettingsDialog(Adw.PreferencesDialog):
         def progress(done_b, total):
             pct = f" {done_b * 100 // total}%" if total else ""
             GLib.idle_add(self.update_row.set_subtitle, f"Downloading {rel.version}…{pct}")
-        def done(path, err):
-            self.update_spinner.stop()
-            self.update_install_btn.set_sensitive(True)
+        def downloaded(path, err):
             if err:
+                self.update_spinner.stop()
+                self.update_install_btn.set_sensitive(True)
                 self.toast(str(err))
                 return
-            updates.open_for_install(path)
-            self.update_row.set_subtitle(f"Downloaded to {path.parent} — finish the update in Software")
-        run_async(lambda: updates.download_rpm(rel.rpm_url, progress), done)
+            self.update_row.set_subtitle(f"Installing {rel.version}… (authorise when asked)")
+            def pct(n):
+                GLib.idle_add(self.update_row.set_subtitle, f"Installing {rel.version}… {n}%")
+            def installed(_r, err):
+                self.update_spinner.stop()
+                self.update_install_btn.set_sensitive(True)
+                if err:
+                    if "PackageKit" in str(err):        # no PackageKit: hand the RPM to Software
+                        updates.open_for_install(path)
+                    self.toast(str(err))
+                    self.update_row.set_subtitle(f"Downloaded to {path.parent} — {err}")
+                    return
+                self.update_install_btn.set_visible(False)
+                self.update_row.set_subtitle(f"Version {rel.version} installed")
+                self.win.check_upgraded_on_disk()
+            run_async(lambda: updates.install_rpm(path, pct), installed)
+        run_async(lambda: updates.download_rpm(rel.rpm_url, progress), downloaded)
 
     def confirm_remove(self):
         dlg = Adw.AlertDialog.new("Remove your Drime setup?",
@@ -405,10 +419,10 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _tick(self) -> bool:
         self.refresh()
-        self._check_upgraded_on_disk()
+        self.check_upgraded_on_disk()
         return True
 
-    def _check_upgraded_on_disk(self) -> None:
+    def check_upgraded_on_disk(self) -> None:
         """An RPM upgrade replaced our files while we run: offer a restart (once)."""
         if self._restart_offered or self._boot_version is None:
             return
@@ -492,8 +506,8 @@ class MainWindow(Adw.ApplicationWindow):
                 return
             self.settings.offer_release(rel)
             dlg = Adw.AlertDialog.new(f"Drime Desktop {rel.version} is available",
-                                      f"You have version {__version__}. Download the update now? "
-                                      "The installation finishes in GNOME Software.")
+                                      f"You have version {__version__}. Download and install it now? "
+                                      "You will be asked for your password.")
             dlg.add_response("later", "Later")
             dlg.add_response("skip", "Skip this version")
             if rel.rpm_url:

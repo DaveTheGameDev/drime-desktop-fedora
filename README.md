@@ -17,7 +17,7 @@
 
 - **Fedora Workstation** (developed on Fedora 44 / GNOME). Other systemd + GTK4 distributions can use the [git checkout](#advanced-install-from-a-git-checkout) path.
 - A Drime account and an **API token**: app.drime.cloud → **Settings → Developer → create token**
-- Everything else (`rclone ≥ 1.73`, `fuse3`, `python3-gobject`, GTK4/libadwaita, WebKitGTK) is a regular Fedora package pulled in automatically when you install the RPM. Recommended (pulled in by default): `gnome-software` for one-click updates and `python3-rpm` for exact version comparison.
+- Everything else (`rclone ≥ 1.73`, `fuse3`, `python3-gobject`, GTK4/libadwaita, WebKitGTK) is a regular Fedora package pulled in automatically when you install the RPM. Recommended (pulled in by default): `PackageKit-glib` for one-click updates and `python3-rpm` for exact version comparison.
 
 ## Install
 
@@ -44,7 +44,7 @@ The embedded view blocks third-party cookies; if a single-sign-on login fails in
 
 ## Updating
 
-- **Drime Desktop itself**: the app checks GitHub Releases a few seconds after it opens and asks you when a newer version exists (*Download and install*, *Later* or *Skip this version*). You can also check by hand: **Drime → ☰ → Settings → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM to your Downloads folder and opens it in GNOME Software (or your default package handler), where you confirm the update. You can keep Drime open while installing: once the new version is on disk the running window notices within ~10 s and offers to restart.
+- **Drime Desktop itself**: the app checks GitHub Releases a few seconds after it opens and asks you when a newer version exists (*Download and install*, *Later* or *Skip this version*). You can also check by hand: **Drime → ☰ → Settings → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM to your Downloads folder and installs it through PackageKit — you only confirm with your password. Once the new version is on disk the running window offers to restart.
 - **rclone and WebKitGTK** (the web engine) update with your normal system updates.
 
 Updates replace the systemd units under `/usr/lib/systemd/user/`; the running mount is not interrupted, new unit settings apply at the next login (or `systemctl --user daemon-reload && systemctl --user restart rclone-drime-mount`).

@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.3.10
+Version:        0.3.11
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -22,7 +22,7 @@ Requires:       webkitgtk6.0
 Requires:       rclone >= 1.73
 Requires:       fuse3
 Requires:       hicolor-icon-theme
-Recommends:     gnome-software
+Recommends:     PackageKit-glib
 Recommends:     python3-rpm
 
 %description
@@ -67,6 +67,17 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Sun Aug 30 2026 DaveTheGameDev - 0.3.11-1
+- "Download and install" now installs the update itself through PackageKit
+  (you only enter your password) and then offers the restart; handing the RPM
+  to GNOME Software silently did nothing on Fedora 44, whose Software uses
+  dnf5 and has no PackageKit plugin
+- The web app no longer stays stuck on a loading skeleton after the computer
+  wakes from sleep: requests hanging on dead connections are aborted and
+  refetched, API requests time out instead of hanging, and the page reloads
+  by itself if it is still stuck
+- Recommends PackageKit-glib instead of gnome-software
+
 * Sat Aug 29 2026 DaveTheGameDev - 0.3.10-1
 - The virtual drive now recovers by itself if rclone crashes: the mount unit
   clears the stale "Transport endpoint is not connected" mountpoint before

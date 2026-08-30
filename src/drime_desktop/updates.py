@@ -1,4 +1,4 @@
-"""Update check against GitHub Releases and hand-off to GNOME Software."""
+"""Update check against GitHub Releases, download and install through PackageKit."""
 from __future__ import annotations
 
 import json
@@ -85,8 +85,40 @@ def download_rpm(url: str, progress: Callable[[int, int], None] | None = None) -
     return dest
 
 
+def install_rpm(path: Path, progress: Callable[[int], None] | None = None) -> None:
+    """Install (upgrade to) the RPM through PackageKit; polkit asks for the password.
+
+    Runs in a worker thread: the PackageKit call is synchronous. Raises UpdateError
+    with a readable message when the user cancels the authorisation or the
+    transaction fails."""
+    try:
+        import gi
+        gi.require_version("PackageKitGlib", "1.0")
+        from gi.repository import GLib, PackageKitGlib as PK
+    except (ImportError, ValueError) as e:
+        raise UpdateError("PackageKit is not available on this system.") from e
+
+    def on_progress(prog, kind, _data):
+        if progress and kind == PK.ProgressType.PERCENTAGE and prog.props.percentage >= 0:
+            progress(prog.props.percentage)
+
+    try:
+        # NONE (not ONLY_TRUSTED): release RPMs are unsigned, so this needs the
+        # "install untrusted package" polkit action.
+        res = PK.Client().install_files(PK.TransactionFlagEnum.NONE, [str(path)], None, on_progress, None)
+    except GLib.Error as e:
+        if e.matches(PK.client_error_quark(), PK.ClientError.FAILED_AUTH) or "not authorized" in e.message.lower():
+            raise UpdateError("Installation cancelled: not authorised.") from e
+        raise UpdateError(f"Installation failed: {e.message}") from e
+    err = res.get_error_code()
+    if err is not None:
+        if err.get_code() == PK.ErrorEnum.NOT_AUTHORIZED:
+            raise UpdateError("Installation cancelled: not authorised.")
+        raise UpdateError(f"Installation failed: {err.get_details()}")
+
+
 def open_for_install(path: Path) -> None:
-    """Open the RPM in GNOME Software (PackageKit local install)."""
+    """Fallback without PackageKit: open the RPM in GNOME Software / the default handler."""
     if shutil.which("gnome-software"):
         cmd = ["gnome-software", f"--local-filename={path}"]
     else:

@@ -169,6 +169,7 @@ SESSION_JS = """
     }
     setInterval(() => { if (Date.now() - last > REFRESH_MS) refresh(); }, 60 * 1000);
     window.addEventListener("focus", () => { if (Date.now() - last > FOCUS_MS) refresh(); });
+    window.__drimeRenewSession = refresh;
 })();
 """ % {"handler": SESSION_HANDLER}
 
@@ -250,12 +251,24 @@ DND_JS = """
 # only patches its cache, and misses e.g. an item moved back to the root
 # folder, which then stays hidden), when the window regains focus and, while
 # it is visible, every minute.
+#
+# Coming back from suspend, the pooled HTTPS connections are dead on the server
+# side but the kernel does not know, so the first requests after wake sit in
+# them until the TCP retransmit timeout: every folder the user clicks stays a
+# loading skeleton, and reloading was the only way out.  We notice the wake
+# (a timer that fires far later than scheduled, the network coming back),
+# abort every request in flight, cancel react-query's pending fetches and
+# refetch on new connections.  API requests also get a timeout so one that
+# does get stuck fails fast and react-query retries it.  If the page is still
+# stuck a while after that, the Python side reloads it.
 
 FRESH_JS = """
 (() => {
     const KEYS = ["drive-entries", "user-folders", "folder-path"];
     const EVERY_MS = 60 * 1000, FOCUS_MS = 10 * 1000;
-    let client = null, last = Date.now();
+    const TICK_MS = 15 * 1000, SLEPT_MS = 90 * 1000, XHR_TIMEOUT_MS = 30 * 1000, STUCK_MS = 20 * 1000;
+    const tell = msg => { try { window.webkit.messageHandlers.%(handler)s.postMessage(msg); } catch (e) {} };
+    let client = null, last = Date.now(), tick = Date.now();
 
     function findClient() {
         const root = document.getElementById("root");
@@ -278,11 +291,49 @@ FRESH_JS = """
     setInterval(() => { if (!document.hidden && Date.now() - last > EVERY_MS - 500) refresh(); }, 15 * 1000);
     window.addEventListener("focus", () => { if (Date.now() - last > FOCUS_MS) refresh(); });
 
+    // --- recovery after suspend / network loss --------------------------
+    const inflight = new Map();   // xhr -> start time
+    const send = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (...args) {
+        if (!this.timeout && this.__drimeGet) this.timeout = XHR_TIMEOUT_MS;
+        inflight.set(this, Date.now());
+        this.addEventListener("loadend", () => inflight.delete(this));
+        return send.apply(this, args);
+    };
+    let recovering = null;
+    function resume(why) {
+        if (recovering) return;
+        for (const xhr of [...inflight.keys()]) { try { xhr.abort(); } catch (e) {} }
+        inflight.clear();
+        try {
+            client = client || findClient();
+            if (client) {
+                const done = () => client.invalidateQueries();
+                client.cancelQueries().then(done, done);
+            }
+        } catch (e) {}
+        if (window.__drimeRenewSession) window.__drimeRenewSession();
+        last = Date.now();
+        recovering = setTimeout(() => {
+            recovering = null;
+            const now = Date.now();
+            for (const t of inflight.values()) if (now - t > STUCK_MS - 2000) { tell("stuck"); return; }
+        }, STUCK_MS);
+    }
+    setInterval(() => {
+        const now = Date.now();
+        if (now - tick > TICK_MS + SLEPT_MS) resume("slept");
+        tick = now;
+    }, TICK_MS);
+    window.addEventListener("online", () => resume("online"));
+    window.__drimeResume = resume;
+
     // after a successful write to the drive API, refetch as soon as the page settles
     const WRITES = /^(file-entries|folders|drive|uploads|s3|trash)($|[/?])/;
     let soon = null;
     const open = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+        this.__drimeGet = /^get$/i.test(method) && String(url).includes("api/v1/");
         if (!/^get$/i.test(method) && WRITES.test(String(url).split("api/v1/")[1] || "")) {
             this.addEventListener("loadend", () => {
                 if (this.status >= 200 && this.status < 300) {
@@ -294,7 +345,7 @@ FRESH_JS = """
         return open.call(this, method, url, ...rest);
     };
 })();
-"""
+""" % {"handler": SESSION_HANDLER}
 
 
 def _session_keeper() -> WebKit.UserContentManager:
@@ -341,6 +392,7 @@ class DrimeWebView(Gtk.Overlay):
         self.view.connect("create", self._create)
         self.view.connect("load-changed", self._load_changed)
         self.view.connect("load-failed", self._load_failed)
+        Gio.NetworkMonitor.get_default().connect("network-changed", self._network_changed)
         self.set_child(self.view)
 
         # Offline / error overlay
@@ -473,6 +525,16 @@ class DrimeWebView(Gtk.Overlay):
             self.notice("Your Drime session had expired and was renewed — please try that again.")
         elif msg == "expired-unrecoverable":
             self.notice("Your Drime session has expired — reload the page (Ctrl+R) and sign in again if asked.")
+        elif msg == "stuck":
+            # still hanging after the in-page recovery (see FRESH_JS): start over
+            self.reload()
+
+    def _network_changed(self, monitor, available: bool) -> None:
+        if available and self.view.get_uri() and not self._failed:
+            self.view.evaluate_javascript("window.__drimeResume && window.__drimeResume('network')",
+                                          -1, None, None, None, None, None)
+        elif available and self._failed:
+            self.reload()
 
     # --- downloads -------------------------------------------------------
 
