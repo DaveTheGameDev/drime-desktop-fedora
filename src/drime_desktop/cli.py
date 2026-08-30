@@ -38,7 +38,7 @@ def cmd_install(args) -> int:
 def cmd_uninstall(args) -> int:
     backend.uninstall_all(purge_config=args.purge_config, log=_print)
     if backend.ICON_SYSTEM.is_file():
-        print("To remove the application itself: sudo dnf remove drime-desktop")
+        print(f"To remove the application itself: {backend.remove_hint()}")
     return 0
 
 
@@ -69,7 +69,7 @@ def cmd_check_update(_args) -> int:
         return 0
     if updates.is_newer(rel.version, __version__):
         print(f"Update available: {rel.version} (installed {__version__})")
-        print(rel.rpm_url or rel.html_url)
+        print(rel.package_url or rel.html_url)
         return 10
     print(f"Up to date ({__version__}).")
     return 0

@@ -106,7 +106,7 @@ class WizardWindow(Adw.ApplicationWindow):
                  "a two-way synced folder, and the Drime web app right here in this window.",
                  "drime-desktop")
         icon = backend.icon_path()
-        if icon is not None:  # works before the RPM icon is in the theme cache / from a git checkout
+        if icon is not None:  # works before the packaged icon is in the theme cache / from a git checkout
             p.status.set_paintable(Gdk.Texture.new_from_filename(str(icon)))
         if self.state.problems:
             p.status.set_description("Please fix the following before continuing:")

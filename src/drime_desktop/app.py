@@ -226,7 +226,7 @@ class SettingsDialog(Adw.PreferencesDialog):
                 return
             if updates.is_newer(rel.version, __version__):
                 self.offer_release(rel)
-                if rel.rpm_url is None:
+                if rel.package_url is None:
                     updates.open_releases_page()
             else:
                 self.update_row.set_subtitle(f"Version {__version__} — up to date")
@@ -236,11 +236,11 @@ class SettingsDialog(Adw.PreferencesDialog):
         """Show a newer release in the Updates row (from the manual check or the startup prompt)."""
         self._release = rel
         self.update_row.set_subtitle(f"Version {__version__} — version {rel.version} is available")
-        self.update_install_btn.set_visible(rel.rpm_url is not None)
+        self.update_install_btn.set_visible(rel.package_url is not None)
 
     def download_update(self):
         rel = self._release
-        if not rel or not rel.rpm_url:
+        if not rel or not rel.package_url:
             return
         self.update_install_btn.set_sensitive(False)
         self.update_spinner.start()
@@ -260,7 +260,7 @@ class SettingsDialog(Adw.PreferencesDialog):
                 self.update_spinner.stop()
                 self.update_install_btn.set_sensitive(True)
                 if err:
-                    if "PackageKit" in str(err):        # no PackageKit: hand the RPM to Software
+                    if "PackageKit" in str(err):        # no PackageKit: hand the package to Software
                         updates.open_for_install(path)
                     self.toast(str(err))
                     self.update_row.set_subtitle(f"Downloaded to {path.parent} — {err}")
@@ -268,8 +268,8 @@ class SettingsDialog(Adw.PreferencesDialog):
                 self.update_install_btn.set_visible(False)
                 self.update_row.set_subtitle(f"Version {rel.version} installed")
                 self.win.check_upgraded_on_disk()
-            run_async(lambda: updates.install_rpm(path, pct), installed)
-        run_async(lambda: updates.download_rpm(rel.rpm_url, progress), downloaded)
+            run_async(lambda: updates.install_package(path, pct), installed)
+        run_async(lambda: updates.download_package(rel.package_url, progress), downloaded)
 
     def confirm_remove(self):
         dlg = Adw.AlertDialog.new("Remove your Drime setup?",
@@ -306,8 +306,8 @@ class SettingsDialog(Adw.PreferencesDialog):
             status.set_title("Drime setup removed")
             status.set_description(
                 f"{backend.SYNC_DIR} and your cloud data were kept. "
-                "To remove this app as well, uninstall “Drime” in GNOME Software "
-                "or run: sudo dnf remove drime-desktop")
+                "To remove this app as well, uninstall “Drime” in your software center "
+                f"or run: {backend.remove_hint()}")
             box.append(button("Quit", self.win.get_application().quit, "pill"))
         run_async(lambda: backend.uninstall_all(purge, log.append), done)
 
@@ -423,7 +423,7 @@ class MainWindow(Adw.ApplicationWindow):
         return True
 
     def check_upgraded_on_disk(self) -> None:
-        """An RPM upgrade replaced our files while we run: offer a restart (once)."""
+        """A package upgrade replaced our files while we run: offer a restart (once)."""
         if self._restart_offered or self._boot_version is None:
             return
         now = updates.installed_version()
@@ -510,7 +510,7 @@ class MainWindow(Adw.ApplicationWindow):
                                       "You will be asked for your password.")
             dlg.add_response("later", "Later")
             dlg.add_response("skip", "Skip this version")
-            if rel.rpm_url:
+            if rel.package_url:
                 dlg.add_response("install", "Download and install")
                 dlg.set_response_appearance("install", Adw.ResponseAppearance.SUGGESTED)
                 dlg.set_default_response("install")

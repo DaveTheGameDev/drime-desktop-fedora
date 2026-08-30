@@ -13,11 +13,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from . import GITHUB_REPO, __version__
+from . import GITHUB_REPO, __version__, backend
 
 API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
 PREFS = Path.home() / ".config/drime-desktop/updates.json"
+# Release asset to download per distribution family (see backend.distro()).
+PACKAGE_SUFFIX = {"fedora": ".noarch.rpm", "debian": "_all.deb"}
 
 
 class UpdateError(Exception):
@@ -27,7 +29,7 @@ class UpdateError(Exception):
 @dataclass
 class Release:
     version: str
-    rpm_url: str | None
+    package_url: str | None   # the RPM or DEB for this distribution, if the release has one
     html_url: str
 
 
@@ -49,7 +51,8 @@ def fetch_latest() -> Release | None:
     except (urllib.error.URLError, OSError, TimeoutError) as e:
         raise UpdateError("Could not reach GitHub. Are you online?") from e
     version = data.get("tag_name", "").lstrip("v")
-    asset = next((a for a in data.get("assets", []) if a["name"].endswith(".noarch.rpm")), None)
+    suffix = PACKAGE_SUFFIX.get(backend.distro())
+    asset = next((a for a in data.get("assets", []) if suffix and a["name"].endswith(suffix)), None)
     return Release(version, asset["browser_download_url"] if asset else None, data.get("html_url", RELEASES_URL))
 
 
@@ -62,10 +65,16 @@ def is_newer(latest: str, installed: str) -> bool:
         import rpm  # python3-rpm, normally present on Fedora
         return rpm.labelCompare(("0", latest, "0"), ("0", installed, "0")) > 0
     except ImportError:
+        pass
+    try:
+        import apt_pkg  # python3-apt, normally present on Debian and Ubuntu
+        apt_pkg.init_system()
+        return apt_pkg.version_compare(latest, installed) > 0
+    except ImportError:
         return _version_key(latest) > _version_key(installed)
 
 
-def download_rpm(url: str, progress: Callable[[int, int], None] | None = None) -> Path:
+def download_package(url: str, progress: Callable[[int, int], None] | None = None) -> Path:
     dest_dir = Path(subprocess.run(["xdg-user-dir", "DOWNLOAD"], capture_output=True,
                                    text=True).stdout.strip() or (Path.home() / "Downloads"))
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -85,8 +94,8 @@ def download_rpm(url: str, progress: Callable[[int, int], None] | None = None) -
     return dest
 
 
-def install_rpm(path: Path, progress: Callable[[int], None] | None = None) -> None:
-    """Install (upgrade to) the RPM through PackageKit; polkit asks for the password.
+def install_package(path: Path, progress: Callable[[int], None] | None = None) -> None:
+    """Install (upgrade to) the RPM or DEB through PackageKit; polkit asks for the password.
 
     Runs in a worker thread: the PackageKit call is synchronous. Raises UpdateError
     with a readable message when the user cancels the authorisation or the
@@ -103,7 +112,7 @@ def install_rpm(path: Path, progress: Callable[[int], None] | None = None) -> No
             progress(prog.props.percentage)
 
     try:
-        # NONE (not ONLY_TRUSTED): release RPMs are unsigned, so this needs the
+        # NONE (not ONLY_TRUSTED): release packages are unsigned, so this needs the
         # "install untrusted package" polkit action.
         res = PK.Client().install_files(PK.TransactionFlagEnum.NONE, [str(path)], None, on_progress, None)
     except GLib.Error as e:
@@ -118,7 +127,7 @@ def install_rpm(path: Path, progress: Callable[[int], None] | None = None) -> No
 
 
 def open_for_install(path: Path) -> None:
-    """Fallback without PackageKit: open the RPM in GNOME Software / the default handler."""
+    """Fallback without PackageKit: open the package in GNOME Software / the default handler."""
     if shutil.which("gnome-software"):
         cmd = ["gnome-software", f"--local-filename={path}"]
     else:
@@ -129,7 +138,7 @@ def open_for_install(path: Path) -> None:
 def installed_version() -> str | None:
     """Version of the package files currently on disk (None from a git checkout).
 
-    Differs from __version__ once an RPM upgrade has replaced the files under a
+    Differs from __version__ once a package upgrade has replaced the files under a
     running app, which keeps executing the old code until it is restarted."""
     try:
         text = (Path(__file__).resolve().parent / "__init__.py").read_text()

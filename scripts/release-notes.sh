@@ -1,13 +1,15 @@
 #!/bin/sh
 # Print the GitHub release notes for a version: the download-guidance header
-# (with the exact RPM filename), the %changelog entry from the spec, and a
-# Full Changelog link. Used by the release workflow and `make release`.
+# (with the exact RPM and DEB filenames), the %changelog entry from the spec,
+# and a Full Changelog link. Used by the release workflow and `make release`.
 #   usage: scripts/release-notes.sh <version> <rpm-filename>
 set -e
 version=$1; rpm=$2
+deb="drime-desktop_${version}_all.deb"
 repo=DaveTheGameDev/drime-desktop-linux
 cd "$(dirname "$0")/.."
-sed "s/drime-desktop-<version>-1.fcNN.noarch.rpm/$rpm/" .github/release-header.md
+sed -e "s/drime-desktop-<version>-1.fcNN.noarch.rpm/$rpm/" -e "s/drime-desktop_<version>_all.deb/$deb/" \
+    .github/release-header.md
 printf '\n## What'"'"'s changed\n\n'
 # The %changelog block for this version, with wrapped lines joined.
 awk -v v="$version" '

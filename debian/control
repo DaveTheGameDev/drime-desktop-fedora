@@ -1,0 +1,25 @@
+Source: drime-desktop
+Section: net
+Priority: optional
+Maintainer: DaveTheGameDev <300138453+DaveTheGameDev@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13), dh-python, python3, desktop-file-utils, appstream
+Standards-Version: 4.6.2
+Homepage: https://github.com/DaveTheGameDev/drime-desktop-linux
+Rules-Requires-Root: no
+
+Package: drime-desktop
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends},
+ python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-webkit-6.0, gir1.2-soup-3.0,
+ rclone (>= 1.73), fuse3, hicolor-icon-theme, xdg-user-dirs, libglib2.0-bin,
+ desktop-file-utils
+Recommends: gir1.2-packagekitglib-1.0, packagekit, python3-apt
+Description: Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
+ Recreates the Drime desktop experience on Linux with rclone's native Drime
+ backend: a virtual drive mounted at ~/Drime, a two-way synced ~/DrimeSync
+ folder, and the Drime web app embedded in one window (WebKitGTK) together
+ with status, updates and the setup wizard.
+ .
+ The rclone shipped by Debian and Ubuntu is too old for the Drime backend:
+ install rclone 1.73 or newer from https://rclone.org/downloads/ first.
+ Unofficial project, not affiliated with Drime.

@@ -36,7 +36,7 @@ RCLONE_CACHE = HOME / ".cache/rclone"
 WEB_DATA_DIR = HOME / ".local/share/drime-desktop/web"   # WebKit cookies/local storage (login)
 WEB_CACHE_DIR = HOME / ".cache/drime-desktop/web"
 
-# Set by install.sh/uninstall.sh when running from a git checkout (no RPM).
+# Set by install.sh/uninstall.sh when running from a git checkout (no package).
 SRC_DIR = Path(os.environ["DRIME_DESKTOP_SRC"]) if os.environ.get("DRIME_DESKTOP_SRC") else None
 
 LogCb = Callable[[str], None]
@@ -78,18 +78,58 @@ def rclone_version() -> tuple[int, ...] | None:
     return tuple(int(x or 0) for x in m.groups())
 
 
+OS_RELEASE = Path("/etc/os-release")
+RCLONE_ORG_HINT = ("install rclone 1.73 or newer from rclone.org, e.g.  curl https://rclone.org/install.sh | sudo bash  "
+                   "- the rclone package of Debian and Ubuntu is too old")
+
+
+def distro() -> str:
+    """'fedora', 'debian' (Debian, Ubuntu and derivatives) or 'unknown', from /etc/os-release."""
+    ids: set[str] = set()
+    try:
+        for line in OS_RELEASE.read_text().splitlines():
+            key, _, value = line.partition("=")
+            if key in ("ID", "ID_LIKE"):
+                ids.update(value.strip().strip('"').split())
+    except OSError:
+        pass
+    if "fedora" in ids:
+        return "fedora"
+    if ids & {"debian", "ubuntu"}:
+        return "debian"
+    return "unknown"
+
+
+def install_hint(package: str, upgrade: bool = False) -> str:
+    """How to get `package` on this distribution, for error messages."""
+    d = distro()
+    if d == "debian" and package == "rclone":
+        return RCLONE_ORG_HINT   # Debian and Ubuntu ship rclone 1.60, older than MIN_RCLONE
+    if d == "fedora":
+        return f"sudo dnf {'upgrade' if upgrade else 'install'} {package}"
+    if d == "debian":
+        return f"sudo apt install {package}"
+    return f"install your distribution's {package} package"
+
+
+def remove_hint() -> str:
+    """The command that uninstalls this application."""
+    return {"fedora": "sudo dnf remove drime-desktop",
+            "debian": "sudo apt remove drime-desktop"}.get(distro(), "uninstall the drime-desktop package")
+
+
 def preflight() -> list[str]:
     """Return a list of human-readable blocking problems (empty = all good)."""
     problems = []
     ver = rclone_version()
     if ver is None:
-        problems.append("rclone is not installed (sudo dnf install rclone).")
+        problems.append(f"rclone is not installed ({install_hint('rclone')}).")
     elif ver < MIN_RCLONE:
         problems.append(
-            "rclone %s is too old; the Drime backend needs %s or newer (sudo dnf upgrade rclone)."
-            % (".".join(map(str, ver)), ".".join(map(str, MIN_RCLONE))))
+            "rclone %s is too old; the Drime backend needs %s or newer (%s)."
+            % (".".join(map(str, ver)), ".".join(map(str, MIN_RCLONE)), install_hint("rclone", upgrade=True)))
     if not shutil.which("fusermount3"):
-        problems.append("fuse3 is not installed (sudo dnf install fuse3).")
+        problems.append(f"fuse3 is not installed ({install_hint('fuse3')}).")
     if systemctl("is-system-running").returncode not in (0, 1):
         # 1 = "degraded", which is still a working user session
         problems.append("No systemd user session is available.")
@@ -175,7 +215,7 @@ def ensure_units(log: LogCb = _noop) -> None:
         migrate_user_units(log)
     else:
         if SRC_DIR is None or not (SRC_DIR / "systemd" / MOUNT_UNIT).is_file():
-            raise RuntimeError("systemd units not found: install the RPM or run from a git checkout.")
+            raise RuntimeError("systemd units not found: install the package or run from a git checkout.")
         USER_UNIT_DIR.mkdir(parents=True, exist_ok=True)
         for u in UNITS:
             shutil.copy(SRC_DIR / "systemd" / u, USER_UNIT_DIR / u)

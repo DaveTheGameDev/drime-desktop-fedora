@@ -8,3 +8,13 @@ rclone.conf
 .DS_Store
 build/
 __pycache__/
+
+# Debian build leftovers (debian/changelog is generated from the spec by `make deb`)
+debian/changelog
+debian/files
+debian/drime-desktop/
+debian/.debhelper/
+debian/*.substvars
+debian/*.debhelper
+debian/*.debhelper.log
+debian/debhelper-build-stamp

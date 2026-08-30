@@ -1,4 +1,4 @@
-name: Build RPM
+name: Build packages
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Install build tools
         run: >
-          dnf install -y git make rpm-build rpmdevtools rpmlint python3-devel
+          dnf install -y git make rpm-build rpmdevtools rpmlint python3-devel python3-pytest
           systemd-rpm-macros desktop-file-utils libappstream-glib
 
       - uses: actions/checkout@v4
@@ -31,6 +31,9 @@ jobs:
           v="$(make -s version)"
           test "v$v" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME != spec version v$v"; exit 1; }
 
+      - name: Test
+        run: make test
+
       - name: Build
         run: make rpm lint
 
@@ -42,16 +45,71 @@ jobs:
             build/SRPMS/*.src.rpm
             build/SOURCES/*.tar.gz
 
-      - name: Release notes
+  deb:
+    # The oldest supported Ubuntu, so the install step proves the dependencies resolve there.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends debhelper dh-python lintian desktop-file-utils appstream python3 python3-pytest
+
+      - name: Check tag matches spec version
         if: startsWith(github.ref, 'refs/tags/')
-        run: scripts/release-notes.sh "$(make -s version)" "$(basename build/RPMS/noarch/*.rpm)" > build/release-notes.md
+        run: |
+          v="$(make -s version)"
+          test "v$v" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME != spec version v$v"; exit 1; }
+
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make deb deb-lint
+
+      - name: Install test (rclone from rclone.org, then the package)
+        run: |
+          curl -fsSLo /tmp/rclone.deb https://downloads.rclone.org/rclone-current-linux-amd64.deb
+          sudo apt-get install -y /tmp/rclone.deb ./build/deb/drime-desktop_*_all.deb
+          drime-desktop --version
+          dpkg -L drime-desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debs
+          path: build/deb/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [rpm, deb]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: rpms
+          path: build/rpms
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: debs
+          path: build/deb
+
+      - name: Release notes
+        run: scripts/release-notes.sh "$(make -s version)" "$(basename build/rpms/*.noarch.rpm)" > build/release-notes.md
 
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           body_path: build/release-notes.md
           files: |
-            build/RPMS/noarch/*.rpm
-            build/SRPMS/*.src.rpm
-            build/SOURCES/*.tar.gz
+            build/rpms/*.noarch.rpm
+            build/deb/*.deb
+            build/rpms/*.src.rpm
+            build/rpms/*.tar.gz

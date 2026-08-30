@@ -2,7 +2,7 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig as s; print(s.get_path('purelib', 'rpm_prefix' if 'rpm_prefix' in s.get_scheme_names() else None))")}
 
 Name:           drime-desktop
-Version:        0.3.11
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
@@ -67,6 +67,14 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_metainfodir}/io.github.davethegamedev.DrimeDesktop.metainfo.xml
 
 %changelog
+* Sun Aug 30 2026 DaveTheGameDev - 0.4.0-1
+- New Ubuntu/Debian package (drime-desktop_<version>_all.deb) for Ubuntu 24.04+
+  and Debian 13+. It needs rclone 1.73 or newer from rclone.org, because the
+  rclone in the Ubuntu and Debian archives is too old for the Drime backend
+- Install, upgrade and uninstall hints, the update download and the version
+  comparison now follow the distribution (dnf on Fedora, apt on Ubuntu/Debian)
+- The release workflow builds and attaches both packages and runs the tests
+
 * Sun Aug 30 2026 DaveTheGameDev - 0.3.11-1
 - "Download and install" now installs the update itself through PackageKit
   (you only enter your password) and then offers the restart; handing the RPM

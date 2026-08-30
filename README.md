@@ -1,6 +1,6 @@
 # Drime Desktop for Linux (unofficial)
 
-[Drime](https://drime.cloud) only ships its desktop app for Windows and macOS. This project recreates the desktop experience on Fedora Linux using [rclone's native Drime backend](https://rclone.org/drime/) — an integration [officially announced by Drime](https://drime.cloud/blog-posts/drime-now-supports-native-rclone-integration) — plus a single GNOME app that shows the Drime web app, sets everything up and keeps it running. One RPM, one icon, no browser or Flatpak to install. No reverse engineering, no Wine: just supported APIs.
+[Drime](https://drime.cloud) only ships its desktop app for Windows and macOS. This project recreates the desktop experience on Linux (Fedora, Ubuntu and Debian) using [rclone's native Drime backend](https://rclone.org/drime/) — an integration [officially announced by Drime](https://drime.cloud/blog-posts/drime-now-supports-native-rclone-integration) — plus a single GNOME app that shows the Drime web app, sets everything up and keeps it running. One package, one icon, no browser or Flatpak to install. No reverse engineering, no Wine: just supported APIs.
 
 <p align="center"><img src="assets/screenshots/main-window.png" alt="The Drime window: the web app with the drive/sync status pill in the title bar" width="800"></p>
 
@@ -15,15 +15,25 @@
 
 ## Requirements
 
-- **Fedora Workstation** (developed on Fedora 44 / GNOME). Other systemd + GTK4 distributions can use the [git checkout](#advanced-install-from-a-git-checkout) path.
+- **Fedora Workstation** (developed on Fedora 44 / GNOME) — RPM package; or **Ubuntu 24.04 or newer / Debian 13 or newer** with GNOME — DEB package. Other systemd + GTK4 distributions can use the [git checkout](#advanced-install-from-a-git-checkout) path.
 - A Drime account and an **API token**: app.drime.cloud → **Settings → Developer → create token**
-- Everything else (`rclone ≥ 1.73`, `fuse3`, `python3-gobject`, GTK4/libadwaita, WebKitGTK) is a regular Fedora package pulled in automatically when you install the RPM. Recommended (pulled in by default): `PackageKit-glib` for one-click updates and `python3-rpm` for exact version comparison.
+- **rclone 1.73 or newer** (the Drime backend). On Fedora it is pulled in with the RPM. On Ubuntu and Debian the archive's `rclone` is too old (1.60), so install the [official rclone package](https://rclone.org/install/) first: `curl https://rclone.org/install.sh | sudo bash` (or the `.deb` from [rclone.org/downloads](https://rclone.org/downloads/)).
+- Everything else (`fuse3`, PyGObject, GTK4/libadwaita, WebKitGTK) is a regular distribution package pulled in automatically when you install the RPM or DEB. Recommended (pulled in by default): PackageKit for one-click updates (`PackageKit-glib` on Fedora, `packagekit` + `gir1.2-packagekitglib-1.0` on Ubuntu/Debian) and `python3-rpm` / `python3-apt` for exact version comparison.
 
 ## Install
+
+**Fedora**
 
 1. Download the latest `drime-desktop-<version>.noarch.rpm` from the [Releases page](https://github.com/DaveTheGameDev/drime-desktop-linux/releases).
 2. Double-click it — GNOME Software opens and installs it (or run `sudo dnf install ./drime-desktop-*.rpm`).
 3. Open **Drime** from your applications. The wizard asks for your API token and turns on the drive and the sync folder. That's it.
+
+**Ubuntu 24.04+ / Debian 13+**
+
+1. Install rclone from rclone.org (the distribution's package is too old): `curl https://rclone.org/install.sh | sudo bash`
+2. Download the latest `drime-desktop_<version>_all.deb` from the [Releases page](https://github.com/DaveTheGameDev/drime-desktop-linux/releases).
+3. Run `sudo apt install ./drime-desktop_*.deb` (or open the file with your software center).
+4. Open **Drime** from your applications and follow the wizard, as above.
 
 The token goes straight into `~/.config/rclone/rclone.conf` and nowhere else.
 
@@ -44,8 +54,8 @@ The embedded view blocks third-party cookies; if a single-sign-on login fails in
 
 ## Updating
 
-- **Drime Desktop itself**: the app checks GitHub Releases a few seconds after it opens and asks you when a newer version exists (*Download and install*, *Later* or *Skip this version*). You can also check by hand: **Drime → ☰ → Settings → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the RPM to your Downloads folder and installs it through PackageKit — you only confirm with your password. Once the new version is on disk the running window offers to restart.
-- **rclone and WebKitGTK** (the web engine) update with your normal system updates.
+- **Drime Desktop itself**: the app checks GitHub Releases a few seconds after it opens and asks you when a newer version exists (*Download and install*, *Later* or *Skip this version*). You can also check by hand: **Drime → ☰ → Settings → Updates → Check for updates**. If a newer release exists, *Download and install* fetches the package for your distribution (RPM or DEB) to your Downloads folder and installs it through PackageKit — you only confirm with your password. Once the new version is on disk the running window offers to restart.
+- **rclone and WebKitGTK** (the web engine) update with your normal system updates. On Ubuntu/Debian, rclone installed from rclone.org is updated by running its install script again.
 
 Updates replace the systemd units under `/usr/lib/systemd/user/`; the running mount is not interrupted, new unit settings apply at the next login (or `systemctl --user daemon-reload && systemctl --user restart rclone-drime-mount`).
 
@@ -69,7 +79,7 @@ drime-desktop --help                         # --install, --uninstall, --check-u
 ## Uninstall
 
 1. **Drime → ☰ → Settings → Remove my setup → Remove…** (or `drime-desktop --uninstall`; add `--purge-config` or tick the checkbox to also delete the API token and uninstall pydrime). This unmounts the drive, disables the timer and removes the bookmark, caches, sync state and the web app's login data.
-2. Uninstall the *Drime* package in GNOME Software, or `sudo dnf remove drime-desktop`.
+2. Uninstall the *Drime* package in your software center, or `sudo dnf remove drime-desktop` / `sudo apt remove drime-desktop`.
 
 What is **kept**: `~/DrimeSync` and everything in your cloud account — always; the window-size file `~/.config/drime-desktop/window.json`; plus your API token (rclone remote), pydrime and its config unless you chose to delete them.
 
@@ -87,16 +97,17 @@ What is **kept**: `~/DrimeSync` and everything in your cloud account — always;
 To hack on it without the RPM, or on other distributions:
 
 ```bash
-sudo dnf install python3-gobject gtk4 libadwaita webkitgtk6.0 rclone fuse3   # or your distro's equivalents
+sudo dnf install python3-gobject gtk4 libadwaita webkitgtk6.0 rclone fuse3   # Fedora
+sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 fuse3  # Ubuntu/Debian (+ rclone from rclone.org)
 git clone https://github.com/DaveTheGameDev/drime-desktop-linux.git
 cd drime-desktop-linux
 ./install.sh                 # terminal wizard; add --with-pydrime for the CLI
 PYTHONPATH=src DRIME_DESKTOP_SRC=$PWD python3 -m drime_desktop.cli    # the GUI, from the checkout
 ```
 
-`install.sh` checks the packages with `rpm -q` on RPM-based systems and skips that check elsewhere; the setup itself only needs a systemd user session, `rclone` and `fusermount3`. The wizard steps can each be skipped and re-run later from Settings.
+`install.sh` checks the packages with `rpm -q` on RPM-based systems, with `dpkg-query` on Debian-based ones, and skips that check elsewhere; the setup itself only needs a systemd user session, `rclone` and `fusermount3`. The wizard steps can each be skipped and re-run later from Settings.
 
-In this mode the systemd units are copied to `~/.config/systemd/user/`. If you later install the RPM, the app switches to the packaged units automatically. `./uninstall.sh [--purge-config]` reverses the setup.
+In this mode the systemd units are copied to `~/.config/systemd/user/`. If you later install the RPM or DEB, the app switches to the packaged units automatically. `./uninstall.sh [--purge-config]` reverses the setup.
 
 <details>
 <summary>What the setup does, step by step</summary>
@@ -111,7 +122,9 @@ In this mode the systemd units are copied to `~/.config/systemd/user/`. If you l
 The launcher (`io.github.davethegamedev.DrimeDesktop.desktop`) and the icon are installed system-wide by the package. The web app's cache lives in `~/.cache/drime-desktop`.
 </details>
 
-## Building the RPM
+## Building the packages
+
+RPM, on Fedora:
 
 ```bash
 sudo dnf install rpm-build rpmdevtools rpmlint python3-devel systemd-rpm-macros desktop-file-utils libappstream-glib
@@ -121,25 +134,39 @@ make install-local       # sudo dnf install it
 
 (`make rpm RPMBUILD_OPTS=--nodeps` builds without `python3-devel`.)
 
-**Releasing**: bump `Version:` and `%changelog` in `drime-desktop.spec`, commit, then `git tag v<version> && git push --tags`. The [GitHub Actions workflow](.github/workflows/release.yml) builds the RPM in a Fedora container, lints it and attaches the `.rpm`, `.src.rpm` and source tarball to a GitHub Release. The tag must match the spec version. The release notes are generated by `scripts/release-notes.sh`: the download-guidance header (`.github/release-header.md`) plus that version's `%changelog` entry — so write the changelog for users. (`make release` publishes the same thing by hand if the workflow isn't available.) The app's *Check for updates* reads the latest release through the public GitHub API.
+DEB, on Ubuntu or Debian:
+
+```bash
+sudo apt install build-essential debhelper dh-python lintian desktop-file-utils appstream
+make deb deb-lint        # -> build/deb/drime-desktop_<version>_all.deb
+make install-local-deb   # sudo apt install it
+```
+
+`drime-desktop.spec` is the single source of the version and the changelog: `make deb` generates `debian/changelog` from its `%changelog` (`scripts/deb-changelog.sh`), so it is not committed. Both packages install the same files to the same places; `debian/rules` mirrors the spec's `%install`.
+
+Tests (pure Python, no GTK needed): `make test` runs `tests/` with pytest (`python3-pytest`).
+
+**Releasing**: bump `Version:` and `%changelog` in `drime-desktop.spec`, commit, then `git tag v<version> && git push --tags`. The [GitHub Actions workflow](.github/workflows/release.yml) runs the tests, builds the RPM in a Fedora container and the DEB on Ubuntu 24.04 (where it also installs it to prove the dependencies resolve), lints both and attaches the `.rpm`, `.deb`, `.src.rpm` and source tarball to a GitHub Release. The tag must match the spec version. The release notes are generated by `scripts/release-notes.sh`: the download-guidance header (`.github/release-header.md`) plus that version's `%changelog` entry — so write the changelog for users. (`make release` publishes the same thing by hand if the workflow isn't available; it attaches `build/deb/*.deb` too when present.) The app's *Check for updates* reads the latest release through the public GitHub API.
 
 ## Repo layout
 
 ```
-drime-desktop.spec          # RPM spec (single source of the version)
-Makefile                    # make rpm / lint / install-local
+drime-desktop.spec          # RPM spec (single source of the version and changelog)
+debian/                     # DEB packaging (debian/changelog is generated from the spec)
+Makefile                    # make rpm / lint / deb / deb-lint / test / install-local[-deb]
 src/drime_desktop/          # Python package: backend (rclone/systemd), GTK app, embedded web view, wizard, updates, CLI
+tests/                      # pytest suite for the distribution-independent logic
 bin/drime-desktop           # launcher
 systemd/                    # user units: mount service, bisync service + timer
 desktop/                    # io.github.davethegamedev.DrimeDesktop.desktop (launcher)
 assets/                     # icon, AppStream metainfo
 install.sh / uninstall.sh   # thin wrappers for git-checkout installs
-.github/workflows/          # release build
+.github/workflows/          # release build (RPM + DEB)
 ```
 
 ## Contributing
 
-Issues and pull requests are welcome. Bug reports are most useful with the output of `drime-desktop --status`, `journalctl --user -u rclone-drime-mount -u drime-bisync -n 50`, and your Fedora version. Licensed under the [MIT License](LICENSE).
+Issues and pull requests are welcome. Bug reports are most useful with the output of `drime-desktop --status`, `journalctl --user -u rclone-drime-mount -u drime-bisync -n 50`, and your distribution and version. Licensed under the [MIT License](LICENSE).
 
 ---
 
