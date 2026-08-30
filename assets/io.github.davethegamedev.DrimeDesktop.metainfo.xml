@@ -9,8 +9,8 @@
     <p>Mounts your Drime cloud account as a virtual drive, keeps a two-way synced folder, and shows the Drime web app in the same window — no browser needed. Built on rclone's native Drime backend. Not affiliated with Drime.</p>
   </description>
   <launchable type="desktop-id">io.github.davethegamedev.DrimeDesktop.desktop</launchable>
-  <url type="homepage">https://github.com/DaveTheGameDev/drime-desktop-fedora</url>
-  <url type="bugtracker">https://github.com/DaveTheGameDev/drime-desktop-fedora/issues</url>
+  <url type="homepage">https://github.com/DaveTheGameDev/drime-desktop-linux</url>
+  <url type="bugtracker">https://github.com/DaveTheGameDev/drime-desktop-linux/issues</url>
   <content_rating type="oars-1.1"/>
   <provides>
     <binary>drime-desktop</binary>

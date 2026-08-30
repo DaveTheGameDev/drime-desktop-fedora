@@ -18,4 +18,4 @@ if __version__.startswith("@"):
 __version__ = os.environ.get("DRIME_DESKTOP_VERSION_OVERRIDE", __version__)
 
 APP_ID = "io.github.davethegamedev.DrimeDesktop"
-GITHUB_REPO = "DaveTheGameDev/drime-desktop-fedora"
+GITHUB_REPO = "DaveTheGameDev/drime-desktop-linux"

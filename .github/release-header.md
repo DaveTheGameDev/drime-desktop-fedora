@@ -6,6 +6,6 @@ The other files are not needed for a normal install:
 - `*.src.rpm` — source package, for rebuilding the RPM
 - `*.tar.gz` — plain source code
 
-Requirements and manual steps: see the [README](https://github.com/DaveTheGameDev/drime-desktop-fedora#install).
+Requirements and manual steps: see the [README](https://github.com/DaveTheGameDev/drime-desktop-linux#install).
 
 ---

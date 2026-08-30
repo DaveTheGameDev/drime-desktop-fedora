@@ -5,7 +5,7 @@
 #   usage: scripts/release-notes.sh <version> <rpm-filename>
 set -e
 version=$1; rpm=$2
-repo=DaveTheGameDev/drime-desktop-fedora
+repo=DaveTheGameDev/drime-desktop-linux
 cd "$(dirname "$0")/.."
 sed "s/drime-desktop-<version>-1.fcNN.noarch.rpm/$rpm/" .github/release-header.md
 printf '\n## What'"'"'s changed\n\n'

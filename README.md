@@ -21,7 +21,7 @@
 
 ## Install
 
-1. Download the latest `drime-desktop-<version>.noarch.rpm` from the [Releases page](https://github.com/DaveTheGameDev/drime-desktop-fedora/releases).
+1. Download the latest `drime-desktop-<version>.noarch.rpm` from the [Releases page](https://github.com/DaveTheGameDev/drime-desktop-linux/releases).
 2. Double-click it — GNOME Software opens and installs it (or run `sudo dnf install ./drime-desktop-*.rpm`).
 3. Open **Drime** from your applications. The wizard asks for your API token and turns on the drive and the sync folder. That's it.
 
@@ -88,8 +88,8 @@ To hack on it without the RPM, or on other distributions:
 
 ```bash
 sudo dnf install python3-gobject gtk4 libadwaita webkitgtk6.0 rclone fuse3   # or your distro's equivalents
-git clone https://github.com/DaveTheGameDev/drime-desktop-fedora.git
-cd drime-desktop-fedora
+git clone https://github.com/DaveTheGameDev/drime-desktop-linux.git
+cd drime-desktop-linux
 ./install.sh                 # terminal wizard; add --with-pydrime for the CLI
 PYTHONPATH=src DRIME_DESKTOP_SRC=$PWD python3 -m drime_desktop.cli    # the GUI, from the checkout
 ```

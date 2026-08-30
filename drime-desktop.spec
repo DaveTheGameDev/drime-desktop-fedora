@@ -6,7 +6,7 @@ Version:        0.3.11
 Release:        1%{?dist}
 Summary:        Unofficial Drime cloud desktop app (virtual drive, sync folder, web app)
 License:        MIT
-URL:            https://github.com/DaveTheGameDev/drime-desktop-fedora
+URL:            https://github.com/DaveTheGameDev/drime-desktop-linux
 Source0:        %{url}/releases/download/v%{version}/%{name}-%{version}.tar.gz
 BuildArch:      noarch
 
