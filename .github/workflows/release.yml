@@ -101,15 +101,16 @@ jobs:
           name: debs
           path: build/deb
 
+      # The rpms artifact keeps the RPMS/SRPMS/SOURCES layout of the build tree.
       - name: Release notes
-        run: scripts/release-notes.sh "$(make -s version)" "$(basename build/rpms/*.noarch.rpm)" > build/release-notes.md
+        run: scripts/release-notes.sh "$(make -s version)" "$(basename build/rpms/RPMS/noarch/*.noarch.rpm)" > build/release-notes.md
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           body_path: build/release-notes.md
           files: |
-            build/rpms/*.noarch.rpm
+            build/rpms/RPMS/noarch/*.noarch.rpm
             build/deb/*.deb
-            build/rpms/*.src.rpm
-            build/rpms/*.tar.gz
+            build/rpms/SRPMS/*.src.rpm
+            build/rpms/SOURCES/*.tar.gz
